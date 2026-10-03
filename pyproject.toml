@@ -1,0 +1,2 @@
+# Packaging configuration task allocation: shared by all members.
+# Each member keeps package metadata and tests aligned with their module.

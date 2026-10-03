@@ -1,0 +1,7 @@
+# Shared project configuration: keep generated artifacts out of the repository.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+build/
+dist/
