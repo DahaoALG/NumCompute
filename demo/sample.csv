@@ -1,0 +1,9 @@
+age,income,height,city
+25,52000,1.72,Adelaide
+32,,1.80,Sydney
+41,88000,1.65,Melbourne
+29,61000,,Adelaide
+52,120000,1.78,Sydney
+37,74000,1.69,
+23,39000,1.83,Adelaide
+45,,1.71,Melbourne
