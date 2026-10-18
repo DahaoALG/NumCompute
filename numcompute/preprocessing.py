@@ -9,6 +9,9 @@ import numpy as np
 from .utils import check_array
 
 
+MISSING = ("", "nan", "None")      # string cells treated as missing by SimpleImputer and OneHotEncoder
+
+
 def _check_fitted(transformer, X: np.ndarray) -> None:
     """Raise if transform is called before fit or with a different number of columns."""
     if not hasattr(transformer, "n_features_in_"):
@@ -79,21 +82,38 @@ class MinMaxScaler:
 
 
 class SimpleImputer:
-    """Replace NaN with the column mean, median or a constant.
+    """Replace missing values with the column mean, median or a constant.
 
-    Args: strategy 'mean' | 'median' | 'constant'; fill_value for 'constant' and for all-NaN columns.
+    Args: strategy 'mean' | 'median' | 'constant'; omitted, it is 'constant' when fill_value is
+          given and 'mean' otherwise. fill_value for 'constant' and for all-NaN columns; a string
+          fill_value (e.g. "Unknown") imputes a categorical array, where "", "nan" and "None" count
+          as missing and the output stays a string array.
     Attributes: statistics_ of shape (n_features,).
     Complexity: O(n * d) time (O(n * d log n) for median), O(n * d) space for the output.
     """
 
-    def __init__(self, strategy: str = "mean", fill_value: float = 0.0):
+    def __init__(self, strategy: str = None, fill_value=None):
+        if strategy is None:
+            strategy = "mean" if fill_value is None else "constant"
         if strategy not in ("mean", "median", "constant"):
             raise ValueError(f"unknown strategy {strategy!r}")
+        if isinstance(fill_value, str) and strategy != "constant":
+            raise ValueError("a string fill_value requires strategy='constant'")
         self.strategy = strategy
-        self.fill_value = float(fill_value)
+        self.fill_value = 0.0 if fill_value is None else fill_value
+        if not isinstance(self.fill_value, str):
+            self.fill_value = float(self.fill_value)
+
+    def _as_array(self, X) -> np.ndarray:
+        if not isinstance(self.fill_value, str):
+            return check_array(X, ndim=2)
+        X = np.asarray(X).astype(str)
+        if X.ndim != 2 or X.size == 0:
+            raise ValueError(f"X must be a non-empty 2-D array, got shape {X.shape}")
+        return X
 
     def fit(self, X: np.ndarray) -> "SimpleImputer":
-        X = check_array(X, ndim=2)
+        X = self._as_array(X)
         n_features = X.shape[1]
 
         if self.strategy == "constant":
@@ -111,9 +131,10 @@ class SimpleImputer:
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
-        X = check_array(X, ndim=2)
+        X = self._as_array(X)
         _check_fitted(self, X)
-        return np.where(np.isnan(X), self.statistics_, X)
+        missing = np.isin(X, MISSING) if X.dtype.kind == "U" else np.isnan(X)
+        return np.where(missing, self.statistics_, X)
 
     def fit_transform(self, X: np.ndarray) -> np.ndarray:
         return self.fit(X).transform(X)
@@ -128,7 +149,7 @@ class OneHotEncoder:
     Complexity: fit O(n * d log n), transform O(n * d * c) with c categories per column.
     """
 
-    MISSING = ("", "nan", "None")
+    MISSING = MISSING
 
     def __init__(self, handle_unknown: str = "error"):
         if handle_unknown not in ("error", "ignore"):
@@ -183,6 +204,10 @@ if __name__ == "__main__":
 
     Z = SimpleImputer("median").fit_transform(X)
     assert not np.isnan(Z).any()
+
+    assert np.allclose(SimpleImputer(fill_value=0).fit(X).statistics_, 0.0)
+    cities = SimpleImputer(fill_value="Unknown").fit_transform([["Perth"], ["nan"], [""]])
+    assert cities[:, 0].tolist() == ["Perth", "Unknown", "Unknown"]
 
     colours = np.array([["red", "S"], ["blue", "M"], ["red", "M"]])
     Z = OneHotEncoder().fit_transform(colours)
