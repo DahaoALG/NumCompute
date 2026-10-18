@@ -96,6 +96,23 @@ def test_imputer_does_not_modify_input_and_rejects_bad_strategy():
         SimpleImputer(strategy="mode")
 
 
+def test_imputer_fill_value_alone_implies_constant():
+    X = np.array([[1.0, np.nan], [np.nan, 4.0]])
+    imp = SimpleImputer(fill_value=0).fit(X)
+    assert imp.strategy == "constant"
+    np.testing.assert_array_equal(imp.fit_transform(X), [[1.0, 0.0], [0.0, 4.0]])
+    assert SimpleImputer().strategy == "mean"
+
+
+def test_imputer_string_fill_value_for_categorical_column():
+    X = np.array([["Perth"], ["nan"], [""], ["Adelaide"]])
+    out = SimpleImputer(fill_value="Unknown").fit_transform(X)
+    assert out[:, 0].tolist() == ["Perth", "Unknown", "Unknown", "Adelaide"]
+    assert OneHotEncoder().fit_transform(out).shape == (4, 3)
+    with pytest.raises(ValueError):
+        SimpleImputer("mean", fill_value="Unknown")
+
+
 # OneHotEncoder
 
 def test_onehot_string_categories_sorted_and_encoded():
