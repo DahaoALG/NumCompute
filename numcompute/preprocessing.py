@@ -4,6 +4,8 @@ X is always (n_samples, n_features). Column statistics ignore NaN; NaN passes
 through transform unchanged, so impute first if that is not wanted.
 """
 
+from typing import Optional, Union
+
 import numpy as np
 
 from .utils import check_array
@@ -138,6 +140,16 @@ class SimpleImputer:
 
     def fit_transform(self, X: np.ndarray) -> np.ndarray:
         return self.fit(X).transform(X)
+
+
+class Imputer(SimpleImputer):
+    """Backward-compatible imputer that accepts a fill value positionally."""
+
+    def __init__(self, fill_value: Optional[Union[float, int, str]] = None):
+        if fill_value is None:
+            super().__init__()
+        else:
+            super().__init__(strategy="constant", fill_value=fill_value)
 
 
 class OneHotEncoder:

@@ -19,7 +19,8 @@ def test_standard_scaler_zero_mean_unit_std(X):
 
 
 def test_standard_scaler_constant_column_gives_zero_not_nan():
-    Z = StandardScaler().fit_transform([[1.0, 7.0], [2.0, 7.0], [3.0, 7.0]])
+    X = np.array([[1.0, 7.0], [2.0, 7.0], [3.0, 7.0]])
+    Z = StandardScaler().fit_transform(X)
     assert np.isfinite(Z).all()
     np.testing.assert_array_equal(Z[:, 1], 0.0)
 
@@ -59,7 +60,8 @@ def test_minmax_default_and_custom_range(X):
 
 
 def test_minmax_constant_column_maps_to_range_min():
-    Z = MinMaxScaler((2, 5)).fit_transform([[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]])
+    X = np.array([[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]])
+    Z = MinMaxScaler((2, 5)).fit_transform(X)
     np.testing.assert_array_equal(Z[:, 0], 2.0)
 
 
@@ -69,8 +71,10 @@ def test_minmax_invalid_range_rejected():
 
 
 def test_minmax_unseen_values_extrapolate():
-    sc = MinMaxScaler().fit([[0.0], [10.0]])
-    np.testing.assert_allclose(sc.transform([[20.0], [-5.0]]), [[2.0], [-0.5]])
+    sc = MinMaxScaler().fit(np.array([[0.0], [10.0]]))
+    np.testing.assert_allclose(
+        sc.transform(np.array([[20.0], [-5.0]])), [[2.0], [-0.5]]
+    )
 
 
 # SimpleImputer
@@ -84,7 +88,8 @@ def test_imputer_strategies():
 
 
 def test_imputer_all_nan_column_uses_fill_value():
-    imp = SimpleImputer("mean", fill_value=9.0).fit([[np.nan, 1.0], [np.nan, 2.0]])
+    X = np.array([[np.nan, 1.0], [np.nan, 2.0]])
+    imp = SimpleImputer("mean", fill_value=9.0).fit(X)
     np.testing.assert_allclose(imp.statistics_, [9.0, 1.5])
 
 
