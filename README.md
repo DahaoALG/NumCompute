@@ -69,7 +69,7 @@ Main options (shared by `load_csv` and `iter_csv_chunks`):
 - `delimiter`: field separator, e.g. `","` or `"\t"`; `None` splits on any whitespace.
 - `dtype`: `str` (default), float, int or unsigned int.
 - `usecols`: columns to keep, by name or position.
-- `missing_values`: cell contents treated as missing (default: `""`, `"NA"`, `"N/A"`, `"NaN"`, `"nan"`, `"null"`, `"None"`, `"?"`).
+- `missing_values`: cell contents treated as missing (default: `""`, `"NA"`, `"N/A"`, `"NaN"`, `"nan"`, `"null"`, `"None"`, `"?"`, `"NULL"`).
 - `on_missing`: `"fill"` (default) writes `fill_value` into missing cells (NaN for floats, `""` for text), `"skip"` drops rows with a missing cell, `"raise"` raises on the first one.
 - `comments`: text that starts a comment, e.g. `"#"`; off by default.
 
