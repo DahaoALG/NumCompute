@@ -22,7 +22,7 @@ __all__ = ["DEFAULT_MISSING", "read_header", "load_csv", "iter_csv_chunks"]
 # Cell contents treated as missing unless the caller passes another set
 DEFAULT_MISSING: tuple[str, ...] = ("", "NA", "N/A", "NaN", "nan", "null", "None", "?", "NULL")
 
-# Possible values for on_missing
+# Possible strategies to handle missing values
 _ON_MISSING = ("fill", "skip", "raise")
 
 
