@@ -90,6 +90,77 @@ for chunk in io.iter_csv_chunks("demo/sample.csv", chunk_size=3, usecols="income
 
 Quoted fields that contain the delimiter (e.g. `"Smith, J"`) are not supported.
 
+### `numcompute.sort_search`: sorting, selection, and search
+
+These functions accept one-dimensional real numeric sequences or NumPy arrays.
+They do not modify the input. NaNs, where supported, sort after all numeric
+values.
+
+| Function | Purpose |
+| -------- | ------- |
+| `stable_sort(values)` | Return a stable ascending sort using NumPy. |
+| `lexsort(keys)` | Return indices that sort by multiple keys; the last key is the primary key. |
+| `argpartition(values, kth)` | Return NumPy partitioned indices around the value at zero-based sorted position `kth`; order within either partition is unspecified. |
+| `topk(values, k, largest=True, return_indices=True)` | Return the `k` largest values descending or smallest ascending, with their input indices by default. |
+| `top_k(values, k, largest=True, return_indices=False)` | Backward-compatible spelling that returns only values by default. |
+| `binary_search(sorted_array, x)` | Return `(insertion_index, found)` using binary search. Input must already be sorted ascending, with NaNs at the end. |
+| `quickselect(values, kth)` | Return the value at zero-based sorted position `kth` without full sorting, using the hand-written selection algorithm. |
+| `quicksort(values)` | Additional hand-written, unstable sorting implementation. |
+
+`kth` is zero-based and must identify an existing element. `topk` and `top_k` accept
+`k` from zero through the input length; if indices are requested, the function
+returns `(values, indices)` with matching order. NaNs appear after non-NaN
+results in either direction. `binary_search` does not check whether its input
+is sorted; when the value is absent, it still returns the insertion position.
+When searching for NaN, the insertion position is the first NaN index.
+
+```python
+from numcompute.sort_search import (
+    binary_search, lexsort, quickselect, stable_sort, topk,
+)
+
+values = [8, 1, 4, 2, 7, 3]
+ordered = stable_sort(values)          # [1, 2, 3, 4, 7, 8]
+median_upper = quickselect(values, 3)  # 4; kth is a zero-based position
+largest_three, indices = topk(values, 3)
+position, found = binary_search(ordered, 4)  # 3, True
+by_two_keys = lexsort(([2, 1, 1], [1, 0, 1]))
+```
+
+### `numcompute.rank`: ranks and percentiles
+
+| Function | Purpose |
+| -------- | ------- |
+| `rank(values, method="average", ascending=True)` | Return one-based ranks in the original input order. |
+| `percentile_rank(values, scores, kind="mean")` | Return the percentile rank (0–100) for one or more scores relative to a sample. |
+| `percentile(values, q, interpolation="linear")` | Return percentile value(s) for `q` in the range 0–100. |
+
+`rank` supports tie methods `"average"` (default), `"min"`, `"max"`,
+`"dense"`, and `"ordinal"`. Set `ascending=False` to assign smaller ranks to
+larger values. NaNs receive NaN ranks. `rankdata` remains available as a
+compatibility alias.
+
+`percentile_rank` accepts `"strict"` (sample values below the score),
+`"weak"` (values less than or equal to the score), `"mean"` (the average of
+those two), and `"rank"` (the average one-based rank of matching sample values
+as a percentage of the sample size). NaNs are omitted from the sample and a
+NaN score produces a NaN result. If the sample contains no non-NaN values, the
+result is NaN.
+
+`percentile` omits NaNs from the sample and uses NumPy percentile interpolation
+methods, including `"linear"` (default), `"lower"`, `"higher"`, `"midpoint"`,
+and `"nearest"`. At least one non-NaN sample value is required. A scalar score
+or percentile returns a scalar; a sequence returns an array.
+
+```python
+from numcompute.rank import percentile, percentile_rank, rank
+
+scores = [30, 10, 20, 20]
+ranks = rank(scores)                               # [4.0, 1.0, 2.5, 2.5]
+rank_of_20 = percentile_rank(scores, 20)           # 50.0
+quartiles = percentile([0, 10, 20, 30], [25, 50, 75])  # [7.5, 15.0, 22.5]
+```
+
 .........
 
 ## Performance table
