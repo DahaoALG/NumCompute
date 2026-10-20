@@ -8,37 +8,45 @@ from numcompute.rank import (
     RankMethod,
     percentile,
     percentile_rank,
+    rank,
     rankdata,
 )
 
 
 class TestRankData(unittest.TestCase):
     def test_average_rank_for_ties(self):
-        np.testing.assert_array_equal(rankdata([3, 1, 2, 2]), [4, 1, 2.5, 2.5])
+        np.testing.assert_array_equal(rank([3, 1, 2, 2]), [4, 1, 2.5, 2.5])
 
     def test_min_max_and_dense_tie_methods(self):
         values = [30, 10, 20, 20]
-        np.testing.assert_array_equal(rankdata(values, "min"), [4, 1, 2, 2])
-        np.testing.assert_array_equal(rankdata(values, "max"), [4, 1, 3, 3])
-        np.testing.assert_array_equal(rankdata(values, "dense"), [3, 1, 2, 2])
+        np.testing.assert_array_equal(rank(values, "min"), [4, 1, 2, 2])
+        np.testing.assert_array_equal(rank(values, "max"), [4, 1, 3, 3])
+        np.testing.assert_array_equal(rank(values, "dense"), [3, 1, 2, 2])
 
     def test_ordinal_breaks_ties_in_input_order(self):
         np.testing.assert_array_equal(
-            rankdata([5, 1, 5, 3], "ordinal"), [3, 1, 4, 2]
+            rank([5, 1, 5, 3], "ordinal"), [3, 1, 4, 2]
         )
 
     def test_descending_ranks_nan_and_empty(self):
         np.testing.assert_array_equal(
-            rankdata([2.0, np.nan, 5.0, 2.0], ascending=False),
+            rank([2.0, np.nan, 5.0, 2.0], ascending=False),
             [2.5, np.nan, 1.0, 2.5],
         )
-        self.assertEqual(rankdata([]).size, 0)
+        self.assertEqual(rank([]).size, 0)
 
     def test_rejects_invalid_method_and_input(self):
         with self.assertRaises(ValueError):
-            rankdata([[1, 2], [3, 4]])
+            rank([[1, 2], [3, 4]])
         with self.assertRaises(ValueError):
-            rankdata([1, 2], method=cast(RankMethod, "unknown"))
+            rank([1, 2], method=cast(RankMethod, "unknown"))
+
+    def test_rankdata_remains_available_as_compatibility_alias(self):
+        np.testing.assert_array_equal(rankdata([2, 1]), [2, 1])
+
+    def test_rank_handles_non_contiguous_input(self):
+        values = np.array([3, 0, 1, 0, 2])[::2]
+        np.testing.assert_array_equal(rank(values), [3, 1, 2])
 
 
 class TestPercentileRank(unittest.TestCase):
@@ -68,13 +76,13 @@ class TestPercentile(unittest.TestCase):
     def test_scalar_percentile(self):
         self.assertEqual(percentile([0, 10, 20, 30], 50), 15.0)
 
-    def test_multiple_percentiles_and_interpolation_method(self):
+    def test_multiple_percentiles_and_interpolation(self):
         np.testing.assert_array_equal(
-            percentile([0, 10, 20, 30], [0, 50, 100], method="nearest"),
+            percentile([0, 10, 20, 30], [0, 50, 100], interpolation="nearest"),
             [0, 20, 30],
         )
         np.testing.assert_array_equal(
-            percentile([0, 10, 20, 30], [25, 75], method="lower"), [0, 20]
+            percentile([0, 10, 20, 30], [25, 75], interpolation="lower"), [0, 20]
         )
 
     def test_omits_nans_and_rejects_all_nan_sample(self):

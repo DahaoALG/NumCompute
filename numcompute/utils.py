@@ -4,8 +4,21 @@ from itertools import islice
 from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 __all__ = ["iter_line_batches", "check_array", "iter_batches"]
+
+
+def _as_numeric_array(values: ArrayLike) -> np.ndarray:
+    """Return a validated one-dimensional real numeric array."""
+    array = np.asarray(values)
+    if array.ndim != 1:
+        raise ValueError("values must be a one-dimensional sequence")
+    if not np.issubdtype(array.dtype, np.number) or np.issubdtype(
+        array.dtype, np.complexfloating
+    ):
+        raise TypeError("values must contain real numeric values")
+    return array
 
 # ---- Jose: iterating line batches ----
 def iter_line_batches(items: Iterable, batch_size: int) -> Iterator[list]:

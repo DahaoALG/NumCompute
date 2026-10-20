@@ -98,40 +98,46 @@ values.
 
 | Function | Purpose |
 | -------- | ------- |
-| `quicksort(values)` | Return a sorted copy in ascending order; average `O(n log n)`, worst-case `O(n²)`. |
-| `merge_sort(values)` | Return a stably sorted copy in ascending order; `O(n log n)` time and `O(n)` auxiliary space. |
-| `argpartition(values, kth)` | Return indices partitioned around the value at zero-based sorted position `kth`; average `O(n)`. Order within either partition is unspecified. |
-| `quickselect(values, kth)` | Return the value at zero-based sorted position `kth` without fully sorting; average `O(n)`. |
-| `top_k(values, k, largest=True)` | Return the `k` largest values in descending order, or the `k` smallest in ascending order when `largest=False`; average `O(n + k log k)`. |
-| `binary_search(sorted_values, target)` | Return the first matching index, or `-1` if absent; `O(log n)`. Input must already be sorted ascending, with NaNs at the end. |
+| `stable_sort(values)` | Return a stable ascending sort using NumPy. |
+| `lexsort(keys)` | Return indices that sort by multiple keys; the last key is the primary key. |
+| `argpartition(values, kth)` | Return NumPy partitioned indices around the value at zero-based sorted position `kth`; order within either partition is unspecified. |
+| `top_k(values, k, largest=True, return_indices=False)` | Return the `k` largest values descending or smallest ascending; optionally return their input indices. |
+| `binary_search(sorted_array, x)` | Return `(insertion_index, found)` using binary search. Input must already be sorted ascending, with NaNs at the end. |
+| `quickselect(values, kth)` | Return the value at zero-based sorted position `kth` without full sorting, using the hand-written selection algorithm. |
+| `quicksort(values)`, `merge_sort(values)` | Additional hand-written sorting implementations; quicksort is not stable and merge sort is stable. |
 
 `kth` is zero-based and must identify an existing element. `top_k` accepts
-`k` from zero through the input length. For `top_k`, NaNs appear after
-non-NaN results in either direction; ties are not guaranteed to retain their
-input order. `binary_search` does not check whether its input is sorted. When
-searching for NaN, it returns the first NaN index.
+`k` from zero through the input length; if indices are requested, the function
+returns `(values, indices)` with matching order. NaNs appear after non-NaN
+results in either direction. `binary_search` does not check whether its input
+is sorted; when the value is absent, it still returns the insertion position.
+When searching for NaN, the insertion position is the first NaN index.
 
 ```python
-from numcompute.sort_search import binary_search, merge_sort, quickselect, top_k
+from numcompute.sort_search import (
+    binary_search, lexsort, quickselect, stable_sort, top_k,
+)
 
 values = [8, 1, 4, 2, 7, 3]
-ordered = merge_sort(values)           # [1, 2, 3, 4, 7, 8]
+ordered = stable_sort(values)          # [1, 2, 3, 4, 7, 8]
 median_upper = quickselect(values, 3)  # 4; kth is a zero-based position
-largest_three = top_k(values, 3)      # [8, 7, 4]
-position = binary_search(ordered, 4)  # 3
+largest_three, indices = top_k(values, 3, return_indices=True)
+position, found = binary_search(ordered, 4)  # 3, True
+by_two_keys = lexsort(([2, 1, 1], [1, 0, 1]))
 ```
 
 ### `numcompute.rank`: ranks and percentiles
 
 | Function | Purpose |
 | -------- | ------- |
-| `rankdata(values, method="average", ascending=True)` | Return one-based ranks in the original input order. |
+| `rank(values, method="average", ascending=True)` | Return one-based ranks in the original input order. |
 | `percentile_rank(values, scores, kind="mean")` | Return the percentile rank (0–100) for one or more scores relative to a sample. |
-| `percentile(values, q, method="linear")` | Return percentile value(s) for `q` in the range 0–100. |
+| `percentile(values, q, interpolation="linear")` | Return percentile value(s) for `q` in the range 0–100. |
 
-`rankdata` supports tie methods `"average"` (default), `"min"`, `"max"`,
+`rank` supports tie methods `"average"` (default), `"min"`, `"max"`,
 `"dense"`, and `"ordinal"`. Set `ascending=False` to assign smaller ranks to
-larger values. NaNs receive NaN ranks.
+larger values. NaNs receive NaN ranks. `rankdata` remains available as a
+compatibility alias.
 
 `percentile_rank` accepts `"strict"` (sample values below the score),
 `"weak"` (values less than or equal to the score), `"mean"` (the average of
@@ -146,10 +152,10 @@ and `"nearest"`. At least one non-NaN sample value is required. A scalar score
 or percentile returns a scalar; a sequence returns an array.
 
 ```python
-from numcompute.rank import percentile, percentile_rank, rankdata
+from numcompute.rank import percentile, percentile_rank, rank
 
 scores = [30, 10, 20, 20]
-ranks = rankdata(scores)                           # [4.0, 1.0, 2.5, 2.5]
+ranks = rank(scores)                               # [4.0, 1.0, 2.5, 2.5]
 rank_of_20 = percentile_rank(scores, 20)           # 50.0
 quartiles = percentile([0, 10, 20, 30], [25, 50, 75])  # [7.5, 15.0, 22.5]
 ```

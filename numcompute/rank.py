@@ -11,11 +11,13 @@ from typing import Literal
 import numpy as np
 from numpy.typing import ArrayLike
 
-from numcompute.sort_search import _as_numeric_array
+from numcompute.utils import _as_numeric_array
+
+__all__ = ["rank", "rankdata", "percentile_rank", "percentile"]
 
 RankMethod = Literal["average", "min", "max", "dense", "ordinal"]
 PercentileRankKind = Literal["rank", "weak", "strict", "mean"]
-PercentileMethod = Literal[
+PercentileInterpolation = Literal[
     "inverted_cdf",
     "averaged_inverted_cdf",
     "closest_observation",
@@ -32,7 +34,7 @@ PercentileMethod = Literal[
 ]
 
 
-def rankdata(
+def rank(
     values: ArrayLike,
     method: RankMethod = "average",
     ascending: bool = True,
@@ -60,14 +62,14 @@ def rankdata(
     Raises
     ------
     TypeError
-        If values are not real numeric values, or method/ascending has an
-        invalid type.
+        If values are not real numeric values or ``ascending`` is not boolean.
     ValueError
-        If values are not one-dimensional or method is unsupported.
+        If values are not one-dimensional or ``method`` is unsupported.
 
     Notes
     -----
-    Time complexity is O(n log n), dominated by sorting.
+    Time complexity is O(n log n), dominated by sorting. Space complexity is
+    O(n).
     """
     array = _as_numeric_array(values)
     if method not in {"average", "min", "max", "dense", "ordinal"}:
@@ -79,39 +81,43 @@ def rankdata(
 
     result = np.full(array.size, np.nan, dtype=np.float64)
     valid_indices = np.flatnonzero(~np.isnan(array))
-    ordered_indices = sorted(
-        valid_indices.tolist(),
-        key=lambda index: array[index],
-        reverse=not ascending,
+    valid_values = array[valid_indices]
+    if not valid_values.size:
+        return result
+    _, inverse, counts = np.unique(
+        valid_values, return_inverse=True, return_counts=True
     )
 
     if method == "ordinal":
-        result[ordered_indices] = np.arange(1, len(ordered_indices) + 1)
+        if ascending:
+            order = np.argsort(valid_values, kind="stable")
+        else:
+            order = np.argsort(-inverse, kind="stable")
+        result[valid_indices[order]] = np.arange(1, valid_values.size + 1)
         return result
 
-    dense_rank = 0
-    start = 0
-    while start < len(ordered_indices):
-        end = start + 1
-        value = array[ordered_indices[start]]
-        while end < len(ordered_indices) and array[ordered_indices[end]] == value:
-            end += 1
-
-        dense_rank += 1
-        minimum_rank = start + 1
-        maximum_rank = end
-        if method == "average":
-            rank = (minimum_rank + maximum_rank) / 2
-        elif method == "min":
-            rank = minimum_rank
-        elif method == "max":
-            rank = maximum_rank
-        else:
-            rank = dense_rank
-        result[ordered_indices[start:end]] = rank
-        start = end
-
+    if ascending:
+        group_counts = counts
+    else:
+        group_counts = counts[::-1]
+    maximum_ranks = np.cumsum(group_counts)
+    minimum_ranks = maximum_ranks - group_counts + 1
+    if method == "average":
+        group_ranks = (minimum_ranks + maximum_ranks) / 2
+    elif method == "min":
+        group_ranks = minimum_ranks
+    elif method == "max":
+        group_ranks = maximum_ranks
+    else:
+        group_ranks = np.arange(1, counts.size + 1)
+    if not ascending:
+        group_ranks = group_ranks[::-1]
+    result[valid_indices] = group_ranks[inverse]
     return result
+
+
+# Keep the earlier API name as a compatibility alias.
+rankdata = rank
 
 
 def percentile_rank(
@@ -155,7 +161,7 @@ def percentile_rank(
     Notes
     -----
     Time complexity is O(n log n + m log n), where n is the sample length and
-    m is the number of scores.
+    m is the number of scores. Space complexity is O(n + m).
     """
     sample = _as_numeric_array(values)
     scalar_score: np.ndarray = np.asarray(scores)
@@ -203,7 +209,7 @@ def percentile_rank(
 def percentile(
     values: ArrayLike,
     q: float | Sequence[float] | np.ndarray,
-    method: PercentileMethod = "linear",
+    interpolation: PercentileInterpolation = "linear",
 ) -> float | np.ndarray:
     """Compute one or more percentiles of a one-dimensional numeric sample.
 
@@ -216,9 +222,9 @@ def percentile(
         Numeric sample. At least one non-NaN value is required.
     q : float or array-like
         Percentile or percentiles in the closed interval [0, 100].
-    method : str, default="linear"
-        NumPy percentile method, such as ``"linear"``, ``"lower"``,
-        ``"higher"``, ``"midpoint"``, or ``"nearest"``.
+    interpolation : str, default="linear"
+        NumPy percentile interpolation method, such as ``"linear"``,
+        ``"lower"``, ``"higher"``, ``"midpoint"``, or ``"nearest"``.
 
     Returns
     -------
@@ -231,11 +237,13 @@ def percentile(
         If values or q contain non-numeric or complex values.
     ValueError
         If values are not one-dimensional, no non-NaN values remain, or a
-        requested percentile is outside [0, 100].
+        requested percentile is outside [0, 100] or interpolation is
+        unsupported by NumPy.
 
     Notes
     -----
-    Time complexity is O(n log n), dominated by sorting the sample.
+    Time complexity is O(n log n), dominated by sorting the sample. Space
+    complexity is O(n).
     """
     array = _as_numeric_array(values)
     quantiles = np.asarray(q)
@@ -254,5 +262,5 @@ def percentile(
     valid_values = array[~np.isnan(array)]
     if valid_values.size == 0:
         raise ValueError("values must contain at least one non-NaN value")
-    result = np.percentile(valid_values, quantiles, method=method)
+    result = np.percentile(valid_values, quantiles, method=interpolation)
     return float(result) if scalar else result

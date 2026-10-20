@@ -1,8 +1,3 @@
-"""Sorts, argpartition/top-k, quickselect, and binary search.
-
-Task allocation: Faris.
-"""
-
 """Sorting, selection, top-k, and binary-search algorithms.
 
 All functions accept one-dimensional real numeric sequences or NumPy arrays.
@@ -10,21 +5,24 @@ Input arrays are never modified. NaNs, when present, are ordered after every
 non-NaN value.
 """
 
+from collections.abc import Sequence
 from numbers import Integral
 
 import numpy as np
 from numpy.typing import ArrayLike
 
-def _as_numeric_array(values: ArrayLike) -> np.ndarray:
-    """Return a validated one-dimensional real numeric array."""
-    array = np.asarray(values)
-    if array.ndim != 1:
-        raise ValueError("values must be a one-dimensional sequence")
-    if not np.issubdtype(array.dtype, np.number) or np.issubdtype(
-        array.dtype, np.complexfloating
-    ):
-        raise TypeError("values must contain real numeric values")
-    return array
+from numcompute.utils import _as_numeric_array
+
+__all__ = [
+    "quicksort",
+    "merge_sort",
+    "stable_sort",
+    "lexsort",
+    "argpartition",
+    "top_k",
+    "quickselect",
+    "binary_search",
+]
 
 
 def _is_nan(value: object) -> bool:
@@ -106,10 +104,29 @@ def _select_indices(values: np.ndarray, indices: list[int], kth: int) -> None:
 
 
 def quicksort(values: ArrayLike) -> np.ndarray:
-    """Return a copy of *values* sorted in ascending order using quicksort.
+    """Return a copy sorted in ascending order with the handwritten quicksort.
 
-    Ties are not guaranteed to retain their original order. NaNs are placed at
-    the end. Average time complexity is O(n log n); worst-case time is O(n²).
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to sort.
+
+    Returns
+    -------
+    ndarray of shape (n,)
+        Sorted copy; ties need not retain input order and NaNs are last.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values.
+    ValueError
+        If values are not one-dimensional.
+
+    Notes
+    -----
+    Average time is O(n log n), worst-case time is O(n²), and auxiliary space
+    is O(log n), excluding the O(n) returned copy.
     """
     result = _as_numeric_array(values).copy()
     if result.size < 2:
@@ -155,10 +172,29 @@ def quicksort(values: ArrayLike) -> np.ndarray:
 
 
 def merge_sort(values: ArrayLike) -> np.ndarray:
-    """Return a stably sorted copy of *values* using bottom-up merge sort.
+    """Return a stably sorted copy using the handwritten bottom-up merge sort.
 
-    NaNs are placed at the end. Time complexity is O(n log n); auxiliary
-    storage is O(n).
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to sort.
+
+    Returns
+    -------
+    ndarray of shape (n,)
+        Sorted copy with the input dtype preserved and NaNs last.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values.
+    ValueError
+        If values are not one-dimensional.
+
+    Notes
+    -----
+    Time is O(n log n) and auxiliary space is O(n), excluding the O(n)
+    returned copy.
     """
     array = _as_numeric_array(values)
     source = array.tolist()
@@ -189,75 +225,222 @@ def merge_sort(values: ArrayLike) -> np.ndarray:
     return np.asarray(source, dtype=array.dtype)
 
 
+def stable_sort(values: ArrayLike) -> np.ndarray:
+    """Return a stable ascending sort of a one-dimensional numeric sequence.
+
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to sort.
+
+    Returns
+    -------
+    ndarray of shape (n,)
+        Stably sorted copy with the input dtype preserved. NaNs are last.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values.
+    ValueError
+        If values are not one-dimensional.
+
+    Notes
+    -----
+    Time is O(n log n) and auxiliary space is O(n), excluding the O(n)
+    returned copy.
+    """
+    array = _as_numeric_array(values)
+    return np.sort(array, kind="stable")
+
+
+def lexsort(keys: Sequence[ArrayLike]) -> np.ndarray:
+    """Return indices that sort rows by multiple keys.
+
+    The last key is the primary key, following :func:`numpy.lexsort`.
+
+    Parameters
+    ----------
+    keys : sequence of array-like of shape (n,)
+        Non-empty sequence of real numeric sort keys, all with equal length.
+
+    Returns
+    -------
+    ndarray of shape (n,), dtype intp
+        Indices that order the input by the supplied keys. Input arrays are
+        not modified.
+
+    Raises
+    ------
+    TypeError
+        If a key contains non-real-numeric values.
+    ValueError
+        If keys is empty, a key is not one-dimensional, or key lengths differ.
+
+    Notes
+    -----
+    For p keys of length n, time is O(p n log n) and auxiliary space is O(n).
+    """
+    if not isinstance(keys, Sequence) or isinstance(keys, (str, bytes)) or not keys:
+        raise ValueError("keys must be a non-empty sequence of arrays")
+    arrays = [_as_numeric_array(key) for key in keys]
+    size = arrays[0].size
+    if any(key.size != size for key in arrays[1:]):
+        raise ValueError("all sort keys must have the same length")
+    return np.lexsort(tuple(arrays))
+
+
 def argpartition(values: ArrayLike, kth: int) -> np.ndarray:
     """Return indices partitioned around the zero-based sorted rank ``kth``.
 
-    The value at ``result[kth]`` is the same as the value at that rank in a
-    fully sorted array. Every value before it is less than or equal to it, and
-    every value after it is greater than or equal to it. The order within
-    either partition is unspecified. NaNs are ordered last.
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to partition.
+    kth : int
+        Zero-based sorted position to place at ``result[kth]``.
 
-    Average time complexity is O(n); worst-case time is O(n²).
+    Returns
+    -------
+    ndarray of shape (n,), dtype intp
+        Indices such that values before ``kth`` are no greater than the
+        selected value and values after it are no less. Within-partition order
+        is unspecified; NaNs are ordered last.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values or ``kth`` is not an integer.
+    ValueError
+        If values are not one-dimensional or ``kth`` is out of range.
+
+    Notes
+    -----
+    Time is O(n) and auxiliary space is O(n), excluding the returned indices.
     """
     array = _as_numeric_array(values)
     index = _check_kth(kth, array.size)
-    indices = list(range(array.size))
-    _select_indices(array, indices, index)
-    return np.asarray(indices, dtype=np.intp)
+    return np.argpartition(array, index)
 
 
-def top_k(values: ArrayLike, k: int, largest: bool = True) -> np.ndarray:
+def top_k(
+    values: ArrayLike,
+    k: int,
+    largest: bool = True,
+    return_indices: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Return the ``k`` smallest or largest values in sorted order.
 
-    The result is descending when ``largest`` is true and ascending otherwise.
-    NaNs are placed after all non-NaN results in either direction. Ties have
-    no guaranteed order. ``k`` may be any integer from zero through the input
-    length. Average time complexity is O(n + k log k).
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to select from.
+    k : int
+        Number of values to return, from zero through ``n``.
+    largest : bool, default=True
+        If true, return values descending; otherwise return them ascending.
+    return_indices : bool, default=False
+        If true, also return the selected indices in the same order as values.
+
+    Returns
+    -------
+    ndarray of shape (k,) or (ndarray of shape (k,), ndarray of shape (k,))
+        Selected values, and optionally their indices. NaNs follow all
+        non-NaN values in either direction. Ties need not retain input order.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values, ``k`` is not an integer, or
+        ``largest``/``return_indices`` are not booleans.
+    ValueError
+        If values are not one-dimensional or ``k`` is outside [0, n].
+
+    Notes
+    -----
+    Average time is O(n + k log k) and auxiliary space is O(n), excluding
+    returned values and optional indices.
     """
     array = _as_numeric_array(values)
     if isinstance(k, (bool, np.bool_)) or not isinstance(k, Integral):
         raise TypeError("k must be an integer")
+    if not isinstance(largest, (bool, np.bool_)):
+        raise TypeError("largest must be a boolean")
+    if not isinstance(return_indices, (bool, np.bool_)):
+        raise TypeError("return_indices must be a boolean")
     count = int(k)
     if count < 0 or count > array.size:
         raise ValueError(f"k must be in the range [0, {array.size}]")
     if count == 0:
-        return array[:0].copy()
+        empty = array[:0].copy()
+        if return_indices:
+            return empty, np.empty(0, dtype=np.intp)
+        return empty
 
-    if np.issubdtype(array.dtype, np.floating):
-        nan_mask = np.isnan(array)
-        nan_indices = np.flatnonzero(nan_mask).tolist()
-        non_nan_indices = np.flatnonzero(~nan_mask).tolist()
+    if np.issubdtype(array.dtype, np.inexact):
+        non_nan_indices = np.flatnonzero(~np.isnan(array))
     else:
-        nan_indices = []
-        non_nan_indices = list(range(array.size))
+        non_nan_indices = np.arange(array.size)
+    nan_indices = np.flatnonzero(np.isnan(array)) if np.issubdtype(
+        array.dtype, np.inexact
+    ) else np.empty(0, dtype=np.intp)
 
-    take = min(count, len(non_nan_indices))
+    take = min(count, non_nan_indices.size)
     if take == 0:
-        return array[nan_indices[:count]].copy()
+        selected_indices = nan_indices[:count]
+        selected = array[selected_indices].copy()
+        if return_indices:
+            return selected, selected_indices.copy()
+        return selected
 
     if largest:
-        rank = len(non_nan_indices) - take
-        candidates = non_nan_indices.copy()
-        _select_indices(array, candidates, rank)
-        chosen = candidates[rank:]
+        rank = non_nan_indices.size - take
+        local_indices = np.argpartition(array[non_nan_indices], rank)[rank:]
     else:
-        candidates = non_nan_indices.copy()
-        _select_indices(array, candidates, take - 1)
-        chosen = candidates[:take]
+        local_indices = np.argpartition(array[non_nan_indices], take - 1)[:take]
+    chosen = non_nan_indices[local_indices]
 
-    selected = merge_sort(array[chosen])
+    selected_order = np.argsort(array[chosen], kind="stable")
     if largest:
-        selected = selected[::-1]
+        selected_order = selected_order[::-1]
+    selected_indices = chosen[selected_order]
+    selected = array[selected_indices].copy()
     if take < count:
-        selected = np.concatenate((selected, array[nan_indices[: count - take]]))
+        selected_indices = np.concatenate(
+            (selected_indices, nan_indices[: count - take])
+        )
+        selected = array[selected_indices].copy()
+    if return_indices:
+        return selected, selected_indices
     return selected
 
 
 def quickselect(values: ArrayLike, kth: int) -> np.generic:
     """Return the value at zero-based sorted rank ``kth`` without full sorting.
 
-    NaNs are ordered after every non-NaN value. Average time complexity is
-    O(n); worst-case time is O(n²).
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to select from.
+    kth : int
+        Zero-based position in the fully sorted sequence.
+
+    Returns
+    -------
+    numpy scalar
+        Value at sorted position ``kth``; NaNs follow all numeric values.
+
+    Raises
+    ------
+    TypeError
+        If values are not real numeric values or ``kth`` is not an integer.
+    ValueError
+        If values are not one-dimensional or ``kth`` is out of range.
+
+    Notes
+    -----
+    Average time is O(n), worst-case time is O(n²), and auxiliary space is
+    O(n) for the selection index array.
     """
     array = _as_numeric_array(values)
     index = _check_kth(kth, array.size)
@@ -266,32 +449,50 @@ def quickselect(values: ArrayLike, kth: int) -> np.generic:
     return array[indices[index]]
 
 
-def binary_search(sorted_values: ArrayLike, target: float) -> int:
-    """Return the first index of ``target`` in ascending ``sorted_values``.
+def binary_search(
+    sorted_array: ArrayLike, x: float
+) -> tuple[int, bool]:
+    """Return the insertion index of ``x`` and whether it is present.
 
-    Return ``-1`` if the target is absent. The input must already be sorted
-    according to the module's ordering (with NaNs at the end); it is not
-    modified or checked for sortedness. If the target is NaN, the first NaN
-    index is returned. Time complexity is O(log n).
+    Parameters
+    ----------
+    sorted_array : array-like of shape (n,)
+        Values already sorted in ascending order, with NaNs at the end.
+        Sortedness is not checked.
+    x : real numeric scalar
+        Value to locate.
+
+    Returns
+    -------
+    tuple[int, bool]
+        ``(insertion_index, found)``. The insertion index is the first
+        position where ``x`` may be inserted without breaking sort order.
+        For a present value (including NaN), it is the first matching index.
+
+    Raises
+    ------
+    TypeError
+        If the array or search value is not real numeric.
+    ValueError
+        If ``sorted_array`` is not one-dimensional.
+
+    Notes
+    -----
+    Time is O(log n) and auxiliary space is O(1).
     """
-    array = _as_numeric_array(sorted_values)
-    target_array = np.asarray(target)
+    array = _as_numeric_array(sorted_array)
+    target_array = np.asarray(x)
     if target_array.ndim != 0 or not np.issubdtype(
         target_array.dtype, np.number
     ) or np.issubdtype(target_array.dtype, np.complexfloating):
-        raise TypeError("target must be a real numeric scalar")
+        raise TypeError("x must be a real numeric scalar")
     value = target_array[()]
-
-    low = 0
-    high = array.size
-    while low < high:
-        middle = (low + high) // 2
-        if _less(array[middle], value):
-            low = middle + 1
-        else:
-            high = middle
-    if low < array.size and not _less(value, array[low]) and not _less(
-        array[low], value
-    ):
-        return low
-    return -1
+    index = int(np.searchsorted(array, value, side="left"))
+    if index == array.size:
+        return index, False
+    if np.issubdtype(array.dtype, np.inexact) and np.isnan(array[index]):
+        target_is_nan = np.issubdtype(target_array.dtype, np.inexact) and np.isnan(
+            value
+        )
+        return index, bool(target_is_nan)
+    return index, bool(array[index] == value)

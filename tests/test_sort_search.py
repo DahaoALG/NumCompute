@@ -5,9 +5,11 @@ import numpy as np
 from numcompute.sort_search import (
     argpartition,
     binary_search,
+    lexsort,
     merge_sort,
     quickselect,
     quicksort,
+    stable_sort,
     top_k,
 )
 
@@ -58,6 +60,29 @@ class TestMergeSort(unittest.TestCase):
             merge_sort(["one", "two"])
 
 
+class TestStableSortAndLexsort(unittest.TestCase):
+    def test_stable_sort_handles_non_contiguous_view(self):
+        base = np.array([5, 99, 1, 99, 4, 99])
+        values = base[::2]
+        result = stable_sort(values)
+        np.testing.assert_array_equal(result, [1, 4, 5])
+        np.testing.assert_array_equal(values, [5, 1, 4])
+
+    def test_stable_sort_places_nans_last(self):
+        result = stable_sort([np.nan, 2.0, -1.0, np.nan])
+        np.testing.assert_array_equal(result[:2], [-1.0, 2.0])
+        self.assertTrue(np.isnan(result[2:]).all())
+
+    def test_lexsort_uses_last_key_as_primary(self):
+        primary = [1, 0, 1, 0]
+        secondary = [2, 2, 1, 1]
+        np.testing.assert_array_equal(lexsort((secondary, primary)), [3, 1, 2, 0])
+
+    def test_lexsort_validates_key_lengths(self):
+        with self.assertRaises(ValueError):
+            lexsort(([1, 2], [1]))
+
+
 class TestArgpartition(unittest.TestCase):
     def test_places_requested_rank_correctly(self):
         values = np.array([9, 1, 5, 3, 7])
@@ -101,6 +126,14 @@ class TestTopK(unittest.TestCase):
         np.testing.assert_array_equal(largest[:2], [3.0, 1.0])
         self.assertTrue(np.isnan(largest[2]))
 
+    def test_returns_original_indices_and_handles_non_contiguous_input(self):
+        base = np.array([9, 99, 1, 99, 5, 99, 3])
+        values = base[::2]
+        selected, indices = top_k(values, 2, return_indices=True)
+        np.testing.assert_array_equal(selected, [9, 5])
+        np.testing.assert_array_equal(values[indices], selected)
+        np.testing.assert_array_equal(values, [9, 1, 5, 3])
+
     def test_rejects_out_of_range_or_non_integer_k(self):
         with self.assertRaises(ValueError):
             top_k([1, 2], 3)
@@ -131,15 +164,17 @@ class TestQuickselect(unittest.TestCase):
 
 
 class TestBinarySearch(unittest.TestCase):
-    def test_returns_first_matching_duplicate(self):
-        self.assertEqual(binary_search([1, 2, 2, 2, 5], 2), 1)
+    def test_returns_first_matching_duplicate_and_found_status(self):
+        self.assertEqual(binary_search([1, 2, 2, 2, 5], 2), (1, True))
 
-    def test_returns_minus_one_when_absent(self):
-        self.assertEqual(binary_search([1, 3, 5, 7], 4), -1)
+    def test_returns_insertion_index_when_absent(self):
+        self.assertEqual(binary_search([1, 3, 5, 7], 4), (2, False))
 
     def test_handles_empty_and_nan_values(self):
-        self.assertEqual(binary_search([], 1), -1)
-        self.assertEqual(binary_search([1.0, 2.0, np.nan, np.nan], np.nan), 2)
+        self.assertEqual(binary_search([], 1), (0, False))
+        self.assertEqual(
+            binary_search([1.0, 2.0, np.nan, np.nan], np.nan), (2, True)
+        )
 
     def test_requires_real_numeric_values(self):
         with self.assertRaises(ValueError):
