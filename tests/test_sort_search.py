@@ -6,10 +6,10 @@ from numcompute.sort_search import (
     argpartition,
     binary_search,
     lexsort,
-    merge_sort,
     quickselect,
     quicksort,
     stable_sort,
+    topk,
     top_k,
 )
 
@@ -38,28 +38,6 @@ class TestQuickSort(unittest.TestCase):
             quicksort(["a", "b"])
 
 
-class TestMergeSort(unittest.TestCase):
-    def test_preserves_dtype_and_input(self):
-        values = np.array([3, 1, 2, 1], dtype=np.int32)
-        result = merge_sort(values)
-        np.testing.assert_array_equal(result, [1, 1, 2, 3])
-        self.assertEqual(result.dtype, values.dtype)
-        np.testing.assert_array_equal(values, [3, 1, 2, 1])
-
-    def test_handles_empty_and_single_value(self):
-        np.testing.assert_array_equal(merge_sort([]), [])
-        np.testing.assert_array_equal(merge_sort([5]), [5])
-
-    def test_places_nans_last(self):
-        result = merge_sort([np.nan, 2.0, np.nan, -1.0])
-        np.testing.assert_array_equal(result[:2], [-1.0, 2.0])
-        self.assertTrue(np.isnan(result[2:]).all())
-
-    def test_rejects_non_numeric_input(self):
-        with self.assertRaises(TypeError):
-            merge_sort(["one", "two"])
-
-
 class TestStableSortAndLexsort(unittest.TestCase):
     def test_stable_sort_handles_non_contiguous_view(self):
         base = np.array([5, 99, 1, 99, 4, 99])
@@ -67,6 +45,11 @@ class TestStableSortAndLexsort(unittest.TestCase):
         result = stable_sort(values)
         np.testing.assert_array_equal(result, [1, 4, 5])
         np.testing.assert_array_equal(values, [5, 1, 4])
+
+    def test_stable_sort_preserves_order_of_equal_signed_zeros(self):
+        values = np.array([-0.0, 0.0, 0.0, -0.0])
+        result = stable_sort(values)
+        np.testing.assert_array_equal(np.signbit(result), np.signbit(values))
 
     def test_stable_sort_places_nans_last(self):
         result = stable_sort([np.nan, 2.0, -1.0, np.nan])
@@ -133,6 +116,11 @@ class TestTopK(unittest.TestCase):
         np.testing.assert_array_equal(selected, [9, 5])
         np.testing.assert_array_equal(values[indices], selected)
         np.testing.assert_array_equal(values, [9, 1, 5, 3])
+
+    def test_spec_topk_defaults_to_returning_indices(self):
+        selected, indices = topk([4, 1, 8, 3], 2)
+        np.testing.assert_array_equal(selected, [8, 4])
+        np.testing.assert_array_equal(np.array([4, 1, 8, 3])[indices], selected)
 
     def test_rejects_out_of_range_or_non_integer_k(self):
         with self.assertRaises(ValueError):

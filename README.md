@@ -101,12 +101,13 @@ values.
 | `stable_sort(values)` | Return a stable ascending sort using NumPy. |
 | `lexsort(keys)` | Return indices that sort by multiple keys; the last key is the primary key. |
 | `argpartition(values, kth)` | Return NumPy partitioned indices around the value at zero-based sorted position `kth`; order within either partition is unspecified. |
-| `top_k(values, k, largest=True, return_indices=False)` | Return the `k` largest values descending or smallest ascending; optionally return their input indices. |
+| `topk(values, k, largest=True, return_indices=True)` | Return the `k` largest values descending or smallest ascending, with their input indices by default. |
+| `top_k(values, k, largest=True, return_indices=False)` | Backward-compatible spelling that returns only values by default. |
 | `binary_search(sorted_array, x)` | Return `(insertion_index, found)` using binary search. Input must already be sorted ascending, with NaNs at the end. |
 | `quickselect(values, kth)` | Return the value at zero-based sorted position `kth` without full sorting, using the hand-written selection algorithm. |
-| `quicksort(values)`, `merge_sort(values)` | Additional hand-written sorting implementations; quicksort is not stable and merge sort is stable. |
+| `quicksort(values)` | Additional hand-written, unstable sorting implementation. |
 
-`kth` is zero-based and must identify an existing element. `top_k` accepts
+`kth` is zero-based and must identify an existing element. `topk` and `top_k` accept
 `k` from zero through the input length; if indices are requested, the function
 returns `(values, indices)` with matching order. NaNs appear after non-NaN
 results in either direction. `binary_search` does not check whether its input
@@ -115,13 +116,13 @@ When searching for NaN, the insertion position is the first NaN index.
 
 ```python
 from numcompute.sort_search import (
-    binary_search, lexsort, quickselect, stable_sort, top_k,
+    binary_search, lexsort, quickselect, stable_sort, topk,
 )
 
 values = [8, 1, 4, 2, 7, 3]
 ordered = stable_sort(values)          # [1, 2, 3, 4, 7, 8]
 median_upper = quickselect(values, 3)  # 4; kth is a zero-based position
-largest_three, indices = top_k(values, 3, return_indices=True)
+largest_three, indices = topk(values, 3)
 position, found = binary_search(ordered, 4)  # 3, True
 by_two_keys = lexsort(([2, 1, 1], [1, 0, 1]))
 ```

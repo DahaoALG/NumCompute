@@ -15,10 +15,10 @@ from numcompute.utils import _as_numeric_array
 
 __all__ = [
     "quicksort",
-    "merge_sort",
     "stable_sort",
     "lexsort",
     "argpartition",
+    "topk",
     "top_k",
     "quickselect",
     "binary_search",
@@ -169,60 +169,6 @@ def quicksort(values: ArrayLike) -> np.ndarray:
                     pending.append(left)
                 low, high = right
     return result
-
-
-def merge_sort(values: ArrayLike) -> np.ndarray:
-    """Return a stably sorted copy using the handwritten bottom-up merge sort.
-
-    Parameters
-    ----------
-    values : array-like of shape (n,)
-        Real numeric values to sort.
-
-    Returns
-    -------
-    ndarray of shape (n,)
-        Sorted copy with the input dtype preserved and NaNs last.
-
-    Raises
-    ------
-    TypeError
-        If values are not real numeric values.
-    ValueError
-        If values are not one-dimensional.
-
-    Notes
-    -----
-    Time is O(n log n) and auxiliary space is O(n), excluding the O(n)
-    returned copy.
-    """
-    array = _as_numeric_array(values)
-    source = array.tolist()
-    size = len(source)
-    if size < 2:
-        return array.copy()
-
-    width = 1
-    while width < size:
-        merged: list[object] = []
-        for start in range(0, size, 2 * width):
-            middle = min(start + width, size)
-            end = min(start + 2 * width, size)
-            left = start
-            right = middle
-            while left < middle and right < end:
-                if _less(source[right], source[left]):
-                    merged.append(source[right])
-                    right += 1
-                else:
-                    merged.append(source[left])
-                    left += 1
-            merged.extend(source[left:middle])
-            merged.extend(source[right:end])
-        source = merged
-        width *= 2
-
-    return np.asarray(source, dtype=array.dtype)
 
 
 def stable_sort(values: ArrayLike) -> np.ndarray:
@@ -413,6 +359,49 @@ def top_k(
     if return_indices:
         return selected, selected_indices
     return selected
+
+
+def topk(
+    values: ArrayLike,
+    k: int,
+    largest: bool = True,
+    return_indices: bool = True,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Return the top ``k`` values, optionally with their input indices.
+
+    This spec-facing spelling defaults to returning both values and indices.
+    Use :func:`top_k` for the backward-compatible API, whose default returns
+    values only.
+
+    Parameters
+    ----------
+    values : array-like of shape (n,)
+        Real numeric values to select from.
+    k : int
+        Number of values to return, from zero through ``n``.
+    largest : bool, default=True
+        If true, return values descending; otherwise return them ascending.
+    return_indices : bool, default=True
+        If true, also return selected indices in the same order as values.
+
+    Returns
+    -------
+    ndarray of shape (k,) or (ndarray of shape (k,), ndarray of shape (k,))
+        Selected values, and optionally their input indices.
+
+    Raises
+    ------
+    TypeError
+        If the input values, ``k``, or boolean options have invalid types.
+    ValueError
+        If values are not one-dimensional or ``k`` is outside [0, n].
+
+    Notes
+    -----
+    Selection uses NumPy's ``argpartition`` and takes O(n + k log k) average
+    time with O(n) auxiliary space.
+    """
+    return top_k(values, k, largest=largest, return_indices=return_indices)
 
 
 def quickselect(values: ArrayLike, kth: int) -> np.generic:
