@@ -17,7 +17,6 @@ __all__ = [
     "quicksort",
     "stable_sort",
     "lexsort",
-    "argpartition",
     "topk",
     "top_k",
     "quickselect",
@@ -234,39 +233,6 @@ def lexsort(keys: Sequence[ArrayLike]) -> np.ndarray:
     if any(key.size != size for key in arrays[1:]):
         raise ValueError("all sort keys must have the same length")
     return np.lexsort(tuple(arrays))
-
-
-def argpartition(values: ArrayLike, kth: int) -> np.ndarray:
-    """Return indices partitioned around the zero-based sorted rank ``kth``.
-
-    Parameters
-    ----------
-    values : array-like of shape (n,)
-        Real numeric values to partition.
-    kth : int
-        Zero-based sorted position to place at ``result[kth]``.
-
-    Returns
-    -------
-    ndarray of shape (n,), dtype intp
-        Indices such that values before ``kth`` are no greater than the
-        selected value and values after it are no less. Within-partition order
-        is unspecified; NaNs are ordered last.
-
-    Raises
-    ------
-    TypeError
-        If values are not real numeric values or ``kth`` is not an integer.
-    ValueError
-        If values are not one-dimensional or ``kth`` is out of range.
-
-    Notes
-    -----
-    Time is O(n) and auxiliary space is O(n), excluding the returned indices.
-    """
-    array = _as_numeric_array(values)
-    index = _check_kth(kth, array.size)
-    return np.argpartition(array, index)
 
 
 def top_k(

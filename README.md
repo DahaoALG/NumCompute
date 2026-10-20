@@ -100,8 +100,7 @@ values.
 | -------- | ------- |
 | `stable_sort(values)` | Return a stable ascending sort using NumPy. |
 | `lexsort(keys)` | Return indices that sort by multiple keys; the last key is the primary key. |
-| `argpartition(values, kth)` | Return NumPy partitioned indices around the value at zero-based sorted position `kth`; order within either partition is unspecified. |
-| `topk(values, k, largest=True, return_indices=True)` | Return the `k` largest values descending or smallest ascending, with their input indices by default. |
+| `topk(values, k, largest=True, return_indices=True)` | Use NumPy's `argpartition` to return the `k` largest values descending or smallest ascending, with their input indices by default. |
 | `top_k(values, k, largest=True, return_indices=False)` | Backward-compatible spelling that returns only values by default. |
 | `binary_search(sorted_array, x)` | Return `(insertion_index, found)` using binary search. Input must already be sorted ascending, with NaNs at the end. |
 | `quickselect(values, kth)` | Return the value at zero-based sorted position `kth` without full sorting, using the hand-written selection algorithm. |

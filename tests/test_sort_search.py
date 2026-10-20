@@ -3,7 +3,6 @@ import unittest
 import numpy as np
 
 from numcompute.sort_search import (
-    argpartition,
     binary_search,
     lexsort,
     quickselect,
@@ -64,34 +63,6 @@ class TestStableSortAndLexsort(unittest.TestCase):
     def test_lexsort_validates_key_lengths(self):
         with self.assertRaises(ValueError):
             lexsort(([1, 2], [1]))
-
-
-class TestArgpartition(unittest.TestCase):
-    def test_places_requested_rank_correctly(self):
-        values = np.array([9, 1, 5, 3, 7])
-        indices = argpartition(values, 2)
-        self.assertEqual(values[indices[2]], 5)
-        self.assertTrue(np.all(values[indices[:2]] <= 5))
-        self.assertTrue(np.all(values[indices[3:]] >= 5))
-
-    def test_handles_duplicate_values(self):
-        values = np.array([4, 2, 2, 2, 8])
-        indices = argpartition(values, 2)
-        self.assertEqual(values[indices[2]], 2)
-        self.assertTrue(np.all(values[indices[:2]] <= 2))
-        self.assertTrue(np.all(values[indices[3:]] >= 2))
-
-    def test_places_nan_ranks_last(self):
-        values = np.array([np.nan, 1.0, 3.0])
-        indices = argpartition(values, 2)
-        self.assertTrue(np.isnan(values[indices[2]]))
-        np.testing.assert_array_equal(values[indices[:2]], [1.0, 3.0])
-
-    def test_rejects_invalid_rank(self):
-        with self.assertRaises(ValueError):
-            argpartition([1, 2], 2)
-        with self.assertRaises(TypeError):
-            argpartition([1, 2], 1.5)
 
 
 class TestTopK(unittest.TestCase):
