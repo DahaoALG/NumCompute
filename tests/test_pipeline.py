@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from numcompute.pipeline import Pipeline
-from numcompute.preprocessing import Imputer, StandardScaler, OneHotEncoder
+from numcompute.preprocessing import SimpleImputer, StandardScaler, OneHotEncoder
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def X_nan(X):
 @pytest.fixture
 def numeric_pipe():
     return Pipeline([
-        ("impute", Imputer(fill_value=0)),
+        ("impute", SimpleImputer(strategy="constant", fill_value=0)),
         ("scale", StandardScaler()),
     ])
 
@@ -62,7 +62,7 @@ def test_fit_returns_pipeline_and_transform_matches_fit_transform(X, numeric_pip
 
 def test_new_data_reuses_training_parameters():
     scaler = StandardScaler()
-    pipe = Pipeline([("impute", Imputer(0)), ("scale", scaler)])
+    pipe = Pipeline([("impute", SimpleImputer(strategy="constant", fill_value=0)), ("scale", scaler)])
     pipe.fit([[0.0], [2.0]])
     result = pipe.transform([[4.0], [np.nan]])
     np.testing.assert_allclose(result, [[3.0], [-1.0]])
@@ -87,8 +87,8 @@ def test_non_contiguous_input(X, numeric_pipe):
 def test_categorical_pipeline_and_unknown_category():
     X = np.array([["Adelaide"], [np.nan], ["Sydney"]], dtype=object)
     pipe = Pipeline([
-        ("impute", Imputer("Unknown")),
-        ("encode", OneHotEncoder()),
+        ("impute", SimpleImputer(strategy="constant", fill_value="Unknown")),
+        ("encode", OneHotEncoder(handle_unknown="ignore")),
     ])
     result = pipe.fit_transform(X)
     np.testing.assert_array_equal(result, [[1, 0, 0], [0, 0, 1], [0, 1, 0]])
@@ -127,8 +127,8 @@ def test_transform_and_predict_require_fit(numeric_pipe):
 
 @pytest.mark.parametrize("steps, message", [
     ([], "at least one"),
-    ([("", Imputer())], "names"),
-    ([("same", Imputer()), ("same", StandardScaler())], "names"),
+    ([("", SimpleImputer())], "names"),
+    ([("same", SimpleImputer()), ("same", StandardScaler())], "names"),
     ([("bad", object())], "fit"),
     ([("model", RecordingEstimator()), ("scale", StandardScaler())], "Intermediate"),
 ])
@@ -164,5 +164,15 @@ def test_failed_refit_clears_fitted_state(numeric_pipe, X):
 
 def test_feature_count_mismatch_rejected(numeric_pipe, X):
     numeric_pipe.fit(X)
-    with pytest.raises(ValueError, match="columns"):
+    with pytest.raises(ValueError, match="features"):
         numeric_pipe.transform(X[:, :2])
+
+
+def test_categorical_pipeline_rejects_unknown_when_configured():
+    pipe = Pipeline([
+        ("impute", SimpleImputer(strategy="constant", fill_value="Unknown")),
+        ("encode", OneHotEncoder(handle_unknown="error")),
+    ])
+    pipe.fit(np.array([["Adelaide"], [np.nan], ["Sydney"]], dtype=object))
+    with pytest.raises(ValueError, match="unknown categories"):
+        pipe.transform([["Perth"]])
