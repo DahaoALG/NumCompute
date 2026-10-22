@@ -210,7 +210,7 @@ Inputs are 1-D. Labels can be int, float, bool or str, but numbers and text are 
 | `environment_info()` | Python, NumPy, OS, CPU and CPU count, `dict[str, str]` |
 | `format_table(rows)` | `compare` results as a Markdown table (the columns of the performance table below); an optional `"notes"` entry in a row fills the Notes column |
 
-The functions passed in take no arguments, so inputs are bound with a lambda. `compare` first checks that both versions return the same result (numbers within tolerance, text exactly) and raises `ValueError` if they differ, so a fast but wrong version never reaches the table. The median is reported because one slow repeat (OS noise) does not move it.
+The functions passed in take no arguments, so inputs are bound with a lambda. `compare` first checks that both versions return the same result (numbers within tolerance and text must match exactly) and raises `ValueError` if they differ. The median is reported because one slow repeat (OS noise) or an outlier does not move it.
 
 ```python
 import numpy as np
@@ -234,7 +234,9 @@ Python loops (`benchmark/loops.py`) against NumCompute on the same inputs; both 
 python -m benchmark.run_benchmarks
 ```
 
-Inputs come from `np.random.default_rng(42)` at fixed sizes. Times are the median of 7 calls. Baseline/result gives the Python-loop time and, in parentheses, the speed-up (loop time / NumCompute time). Environment: Python 3.14.7, NumPy 2.5.4, Windows 11, Intel CPU with 12 logical cores. Timings vary between machines and runs; the full report is in `benchmark/results.md`.
+Inputs come from `np.random.default_rng(42)` at fixed sizes. Times reported are the median of 7 calls. Baseline/result gives the Python-loop time and, in parentheses, the speed-up (loop time / NumCompute time).
+
+Environment: Python 3.14.7, NumPy 2.5.4, Windows 11, Intel CPU with 12 logical cores. Timings could vary between machines and runs. The full report is in `benchmark/results.md`.
 
 | Operation | NumCompute result | Baseline/result | Notes |
 |---|---:|---:|---|

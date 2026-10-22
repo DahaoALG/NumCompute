@@ -29,7 +29,7 @@ def time_function(
     number: int = 1,
     warmup: int = 1,
 ) -> np.ndarray:
-    """Time a function that takes no arguments.
+    """Time a function that takes no arguments. Loops used to repeat the timings.
 
     Parameters
     ----------
@@ -60,7 +60,6 @@ def time_function(
     -----
     Time Complexity: O(warmup + repeat * number) calls of ``func``.
     Space Complexity: O(repeat).
-    The loops here are the timing itself, not a computation to vectorise.
 
     Examples
     --------
@@ -118,7 +117,7 @@ def compare(
         Calls per measurement. Must be >= 1. Raise it for functions so fast that
         one call is close to the clock's resolution.
     rtol, atol : float
-        Tolerances for the result check (numeric results only; text must match exactly).
+        Tolerances for the result check (numeric results only, text must match exactly).
 
     Returns
     -------
@@ -145,14 +144,15 @@ def compare(
     >>> sorted(row)
     ['case', 'loop_s', 'speedup', 'vec_s']
     """
+    # Check that both functions are callable
     if not callable(loop_func) or not callable(vec_func):
         raise TypeError("loop_func and vec_func must be callable")
 
-    # Check first, so a fast but wrong version never reaches the table
+    # Check both functions results are the same
     if not _same_result(loop_func(), vec_func(), rtol, atol):
         raise ValueError(f"{case}: the loop and vectorised results differ")
 
-    # The check calls above already warmed both functions up
+    # The check step above already warmed both functions up
     loop_s = float(np.median(time_function(loop_func, repeat, number, warmup=0)))
     vec_s = float(np.median(time_function(vec_func, repeat, number, warmup=0)))
     
@@ -223,6 +223,7 @@ def format_table(rows: Sequence[dict[str, str | float]]) -> str:
         lines.append(f"| {row['case']} | {row['vec_s'] * 1e3:,.3f} ms "
                      f"| {row['loop_s'] * 1e3:,.3f} ms ({row['speedup']:,.1f}x) "
                      f"| {row.get('notes', '')} |")
+    
     return "\n".join(lines)
 
 
@@ -230,7 +231,8 @@ def _same_result(a: Any, b: Any, rtol: float, atol: float) -> bool:
     """True if two results have the same shape and values (NaN equals NaN)."""
     a = np.asarray(a)
     b = np.asarray(b)
-    
+
+    # Shapes must match
     if a.shape != b.shape:
         return False
     
