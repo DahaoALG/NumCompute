@@ -1,6 +1,8 @@
 # NumCompute
 
-P_AI Assignment 2026 S2
+P_AI Assignment 2.1, 2026 S2
+
+Group name: 404 Group Not Found
 
 A scientific computing toolkit built with Python and NumPy. It includes CSV input, preprocessing, sorting/searching, ranking, statistics, metrics, numerical derivatives, pipelines and reproducible benchmarks.
 
