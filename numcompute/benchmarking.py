@@ -228,7 +228,32 @@ def format_table(rows: Sequence[dict[str, str | float]]) -> str:
 
 
 def _same_result(a: Any, b: Any, rtol: float, atol: float) -> bool:
-    """True if two results have the same shape and values (NaN equals NaN)."""
+    """Check result shapes and values before comparing runtimes.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Results to compare; shapes must match exactly.
+    rtol, atol : float
+        Relative and absolute tolerances used for real numeric results.
+
+    Returns
+    -------
+    bool
+        Numeric results use allclose with equal_nan=True; other dtypes
+        require exact array equality. Different shapes return false.
+
+    Raises
+    ------
+    TypeError
+        If values cannot be compared by NumPy.
+    ValueError
+        If conversion to arrays fails, for example for ragged results.
+
+    Notes
+    -----
+    Time and worst-case space: O(N), N is the number of result elements.
+    """
     a = np.asarray(a)
     b = np.asarray(b)
 

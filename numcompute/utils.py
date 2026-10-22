@@ -10,7 +10,29 @@ __all__ = ["iter_line_batches", "check_array", "iter_batches"]
 
 
 def _as_numeric_array(values: ArrayLike) -> np.ndarray:
-    """Return a validated one-dimensional real numeric array."""
+    """Validate a one-dimensional real numeric sequence without changing its dtype.
+
+    Parameters
+    ----------
+    values : array_like, shape (n,)
+        Real numeric values; empty input and NaNs are allowed.
+
+    Returns
+    -------
+    ndarray, shape (n,)
+        Input array or an array converted from the sequence.
+
+    Raises
+    ------
+    TypeError
+        If values are nonnumeric or complex.
+    ValueError
+        If values are not one-dimensional or cannot form a regular array.
+
+    Notes
+    -----
+    Time/space: O(n) when conversion allocates, otherwise O(1).
+    """
     array = np.asarray(values)
     if array.ndim != 1:
         raise ValueError("values must be a one-dimensional sequence")
@@ -73,12 +95,30 @@ def iter_line_batches(items: Iterable, batch_size: int) -> Iterator[list]:
 # ---- Dat: validation and batching ----
 
 def check_array(X, ndim: int = None) -> np.ndarray:
-    """Convert X to a float64 array and check it is non-empty with the expected ndim.
+    """Convert input to a nonempty floating-point array and validate its dimensions.
 
-    Args: X array_like of numbers; ndim required dimensions, None accepts any.
-    Returns: float64 ndarray, same shape as X.
-    Raises: TypeError if X is not numeric; ValueError if X is empty or ndim is wrong.
-    Complexity: O(n) time; copies only when the dtype changes.
+    Parameters
+    ----------
+    X : array_like
+        Values convertible to float; NaN and infinity are not rejected.
+    ndim : int or None, default None
+        Required number of dimensions; None allows any nonempty shape.
+
+    Returns
+    -------
+    ndarray of float64, same shape as X
+        May share storage with an existing float64 array.
+
+    Raises
+    ------
+    TypeError
+        If X cannot be converted to floating-point data.
+    ValueError
+        If X is empty or has a different number of dimensions.
+
+    Notes
+    -----
+    Time/space: O(N) if conversion allocates, otherwise O(1), N=X.size.
     """
     try:
         X = np.asarray(X, dtype=float)
@@ -93,12 +133,35 @@ def check_array(X, ndim: int = None) -> np.ndarray:
 
 
 def iter_batches(X: np.ndarray, batch_size: int):
-    """Yield X in consecutive row batches (views, no copies).
+    """Yield consecutive row slices, including a shorter final batch.
 
-    Args: X array of shape (n, ...); batch_size rows per batch, the last may be shorter.
-    Returns: generator of arrays with at most batch_size rows.
-    Raises: ValueError if batch_size is not positive.
-    Complexity: O(n / batch_size) iterations, O(1) extra space.
+    Parameters
+    ----------
+    X : array_like, shape (n, ...)
+        Input with a row axis; converted with np.asarray.
+    batch_size : int
+        Positive maximum row count per batch.
+
+    Returns
+    -------
+    iterator of ndarray, shape (b, ...)
+        Views of the converted array, with b <= batch_size. Empty input
+        with a row axis yields no batches.
+
+    Raises
+    ------
+    ValueError
+        If batch_size is not positive.
+    TypeError
+        If batch_size is not usable as a range step.
+    IndexError
+        If X is scalar and has no row axis.
+
+    Notes
+    -----
+    Time: O(ceil(n / batch_size)) iterations after conversion. Extra space
+    is O(1) for array input; converting a sequence may allocate its full size.
+    Validation occurs when the iterator is consumed.
     """
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")

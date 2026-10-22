@@ -11,36 +11,171 @@ from typing import Protocol
 class Transformer(Protocol):
     """Interface for a preprocessor: learn parameters, then transform data."""
 
-    def fit(self, X): ...
+    def fit(self, X): 
+        """Learn preprocessing parameters from X.
 
-    def transform(self, X): ...
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Training features.
+
+        Returns
+        -------
+        Transformer
+            The fitted object (self).
+
+        Raises
+        ------
+        Exception
+            Input validation and fitted-state errors depend on the implementation.
+
+        Notes
+        -----
+        Time and space depend on the concrete implementation. This protocol
+        only declares an interface; it performs no computation.
+        """
+        ...
+
+    def transform(self, X): 
+        """Apply learned preprocessing parameters without refitting.
+
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Features compatible with the fitted transformer.
+
+        Returns
+        -------
+        array_like, shape (n_samples, n_output_features)
+            Processed features.
+
+        Raises
+        ------
+        Exception
+            Input validation and fitted-state errors depend on the implementation.
+
+        Notes
+        -----
+        Time and space depend on the concrete implementation. This protocol
+        only declares an interface; it performs no computation.
+        """
+        ...
 
 
 class Estimator(Protocol):
     """Interface for a model; this module does not implement a model."""
 
-    def fit(self, X, y): ...
+    def fit(self, X, y): 
+        """Learn estimator state from features and targets.
 
-    def predict(self, X): ...
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Training features.
+        y : array_like, usually shape (n_samples,)
+            Target values aligned with X.
+
+        Returns
+        -------
+        Estimator
+            The fitted object (self).
+
+        Raises
+        ------
+        Exception
+            Input validation and fitted-state errors depend on the implementation.
+
+        Notes
+        -----
+        Time and space depend on the concrete implementation. This protocol
+        only declares an interface; it performs no computation.
+        """
+        ...
+
+    def predict(self, X): 
+        """Return predictions from fitted estimator state.
+
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            New features compatible with the fitted estimator.
+
+        Returns
+        -------
+        array_like, usually shape (n_samples,)
+            Predictions; exact shape depends on the estimator.
+
+        Raises
+        ------
+        Exception
+            Input validation and fitted-state errors depend on the implementation.
+
+        Notes
+        -----
+        Time and space depend on the concrete implementation. This protocol
+        only declares an interface; it performs no computation.
+        """
+        ...
 
 
 class Pipeline:
-    """Chain a nonempty sequence of (name, component) pairs.
+    """Chain named transformers and an optional final estimator.
 
-    All steps except the last must provide fit and transform. The last step
-    provides fit and either transform (preprocessing) or predict (a model).
-    Supplied components are fitted in place, without cloning.
+    Parameters
+    ----------
+    steps : iterable of (str, object) pairs
+        Nonempty sequence with unique nonempty names. Each component must
+        provide fit. Intermediate components must provide transform; the
+        final component must provide transform or predict.
 
-    Method costs are the sum of the called components' costs, plus O(s)
-    dispatch for s steps. Working space is determined by the components and
-    the largest intermediate arrays; intermediate results are not cached.
+    Attributes
+    ----------
+    steps : list of (str, object) pairs
+        Components in execution order, stored by reference without cloning.
+    is_fitted_ : bool
+        Whether the most recent fit completed successfully.
+
+    Raises
+    ------
+    ValueError
+        If the step sequence, names or component methods are invalid.
+    TypeError
+        If the step sequence or entries cannot be iterated/unpacked.
+
+    Notes
+    -----
+    Construction takes O(s) time and space for s steps. Method costs are the
+    sum of component costs plus O(s) dispatch. Working space is determined
+    by component state and intermediate arrays; results are not cached.
     """
 
     def __init__(self, steps):
-        """Store named steps; raise ValueError for empty or invalid steps.
+        """Store and validate the named processing steps.
 
-        Parameters: steps is a sequence of (unique nonempty string, component).
-        Returns a Pipeline instance. Time/space: O(s), s = number of steps.
+        Parameters
+        ----------
+        steps : iterable of (str, object) pairs
+            Nonempty sequence of components with unique nonempty names. Every
+            step requires fit; intermediate steps also require transform. The
+            last step must provide transform or predict.
+
+        Returns
+        -------
+        None
+            Initialize an unfitted pipeline with the supplied component objects.
+
+        Raises
+        ------
+        ValueError
+            If steps are empty, names are invalid or required methods are absent;
+            also raised if a step cannot be unpacked into a pair.
+        TypeError
+            If steps is not iterable or an entry cannot be unpacked.
+
+        Notes
+        -----
+        Time and space: O(s), where s is the number of steps. Components are
+        stored by reference and fitted in place, without cloning.
         """
         self.steps = list(steps)
         if not self.steps:
@@ -66,13 +201,35 @@ class Pipeline:
         self.is_fitted_ = False
 
     def fit(self, X, y=None):
-        """Fit each step in order and return self.
+        """Fit each step in order and return the pipeline.
 
-        X has shape (n, p). Optional y has n targets and is passed only to a
-        final estimator providing predict. Intermediate preprocessors receive
-        X only. Each intermediate step transforms its output for the next step.
-        Errors from components (e.g. invalid shapes) propagate to the caller.
-        Time: sum of fits plus intermediate transforms; see class for space.
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Features accepted by the first step. Each later step receives the
+            preceding transformer's output.
+        y : array_like, usually shape (n_samples,), or None, default None
+            Targets passed unchanged to the final step only if y is supplied
+            and that step provides predict. Preprocessors receive X only.
+
+        Returns
+        -------
+        Pipeline
+            The fitted instance (self).
+
+        Raises
+        ------
+        Exception
+            Validation and computation errors raised by individual steps propagate.
+        TypeError
+            May arise if an estimator requires y but none is supplied.
+
+        Notes
+        -----
+        Time: O(s) dispatch plus all fits and intermediate transforms. Space:
+        component state and intermediate arrays; no transformed data is cached.
+        Each intermediate step is fitted and then transforms its input. The
+        last step is only fitted. A failed fit leaves is_fitted_ false.
         """
         self.is_fitted_ = False
         X_out = X
@@ -90,11 +247,31 @@ class Pipeline:
         return self
 
     def transform(self, X):
-        """Transform X (n, p) through every fitted step; return X_out (n, q).
+        """Transform input through all fitted steps without refitting.
 
-        Raises ValueError before fit or if the final step lacks transform.
-        Component errors propagate. Time is the sum of transforms; space is
-        determined by their intermediate arrays. Does not refit any step.
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Features accepted by the first step. Each later step receives the
+            preceding transformer's output.
+
+        Returns
+        -------
+        array_like, usually shape (n_samples, n_output_features)
+            Output from the final transform method; exact type and shape follow
+            the components.
+
+        Raises
+        ------
+        ValueError
+            If the pipeline is unfitted or the last step lacks transform.
+        Exception
+            Validation and computation errors raised by individual steps propagate.
+
+        Notes
+        -----
+        Time: O(s) dispatch plus the sum of transform costs. Working space
+        depends on the component outputs; intermediate results are not cached.
         """
         if not self.is_fitted_:
             raise ValueError("Call fit before transform")
@@ -107,10 +284,35 @@ class Pipeline:
         return X_out
 
     def fit_transform(self, X, y=None):
-        """Fit X (n, p), then return transformed X_out (n, q).
+        """Fit the pipeline and transform the same input.
 
-        y is optional as in fit. Raises ValueError if the last step lacks
-        transform; otherwise errors/costs are those of fit plus transform.
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Features accepted by the first step. Each later step receives the
+            preceding transformer's output.
+        y : array_like, usually shape (n_samples,), or None, default None
+            Targets passed unchanged to the final step only if y is supplied
+            and that step provides predict. Preprocessors receive X only.
+
+        Returns
+        -------
+        array_like, usually shape (n_samples, n_output_features)
+            Transformed training data returned by the final transformer.
+
+        Raises
+        ------
+        ValueError
+            If the final step lacks transform.
+        Exception
+            Validation and computation errors raised by individual steps propagate.
+
+        Notes
+        -----
+        Time and space are those of fit followed by transform. This method
+        reapplies intermediate transforms during the transform phase.
+        Equivalent to self.fit(X, y).transform(X); use fit and predict when the
+        last step is an estimator without transform.
         """
         if not callable(getattr(self.steps[-1][1], "transform", None)):
             raise ValueError("fit_transform requires a final transformer")
@@ -118,11 +320,31 @@ class Pipeline:
         return self.transform(X)
 
     def predict(self, X):
-        """Transform X (n, p), then return the final estimator's predictions.
+        """Transform features and delegate prediction to the final estimator.
 
-        Prediction shape follows the estimator, usually (n,). Raises ValueError
-        before fit or when the final step lacks predict; component errors
-        propagate. Cost: intermediate transforms plus the final predict call.
+        Parameters
+        ----------
+        X : array_like, shape (n_samples, n_features)
+            Features accepted by the first step. Each later step receives the
+            preceding transformer's output.
+
+        Returns
+        -------
+        array_like, usually shape (n_samples,)
+            Predictions from the last step; exact type and shape depend on it.
+
+        Raises
+        ------
+        ValueError
+            If the pipeline is unfitted or the final step lacks predict.
+        Exception
+            Validation and computation errors raised by individual steps propagate.
+
+        Notes
+        -----
+        Time: O(s) dispatch plus intermediate transform costs and the final
+        predict cost. Space depends on intermediate arrays and estimator output.
+        Uses the fitted preprocessing parameters; no step is fitted again.
         """
         if not self.is_fitted_:
             raise ValueError("Call fit before predict")

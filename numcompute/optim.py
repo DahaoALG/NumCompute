@@ -17,7 +17,33 @@ import numpy as np
 
 
 def share_input(x, h, method):
-    """Check the input vector, step size, and difference method."""
+    """Validate a finite-difference input vector and perturbation.
+
+    Parameters
+    ----------
+    x : array_like, shape (n,)
+        Nonempty, finite real vector.
+    h : real scalar
+        Positive finite step that changes every coordinate in floating point.
+    method : {'central', 'forward'}
+        Difference formula; central checks both perturbation directions.
+
+    Returns
+    -------
+    tuple of (ndarray, float)
+        Converted floating-point x of shape (n,) and validated step h.
+
+    Raises
+    ------
+    TypeError
+        If x is complex or values cannot be converted to real numbers.
+    ValueError
+        If shape, finiteness, step or method is invalid, or conversion fails.
+
+    Notes
+    -----
+    Time and space: O(n) for validation and perturbation arrays.
+    """
     if np.iscomplexobj(x):
         raise TypeError("x must contain real numbers")
     
@@ -46,7 +72,36 @@ def share_input(x, h, method):
 
 
 def share_output(function, x, expected_shape=None):
-    """Evaluate a function on a copy, checking real, finite, consistent output."""
+    """Evaluate a callable on a copy and check its numeric output.
+
+    Parameters
+    ----------
+    function : callable
+        Called with a copy of x.
+    x : ndarray, shape (n,)
+        Evaluation point.
+    expected_shape : tuple of int or None, default None
+        Required output shape; None skips the shape check.
+
+    Returns
+    -------
+    ndarray of float
+        Copied result with the callable's shape; scalar output has shape ().
+
+    Raises
+    ------
+    TypeError
+        If output is complex or cannot be converted to real numbers.
+    ValueError
+        If conversion fails, output is nonfinite or its shape differs.
+    Exception
+        Exceptions raised by function propagate.
+
+    Notes
+    -----
+    Time: O(T + n + m); space O(n + m) excluding callable internals,
+    where T is evaluation cost and m the output element count.
+    """
     value = function(x.copy())
     if np.iscomplexobj(value):
         raise TypeError("function output must contain real numbers")
@@ -61,16 +116,42 @@ def share_output(function, x, expected_shape=None):
 
 
 def grad(f, x, h=1e-5, method="central"):
-    """Estimate the gradient of scalar function f at vector x.
+    """Estimate the gradient of a scalar function.
 
-    Parameters: f accepts a real array (n,) and returns a scalar; x is nonempty
-    and finite; h is a positive finite scalar; method is central or forward.
-    Returns a float array (n,), in input-coordinate order, without mutating x.
-    Raises ValueError for invalid input/method/step or nonfinite, nonscalar,
-    inconsistent output; TypeError for nonnumeric/complex input or output.
-    Errors raised inside f propagate. Central uses 2*n+1 evaluations, forward
-    n+1 (including a base evaluation for validation). Time O(n*T + n**2), where
-    T is one function evaluation; own working space O(n), excluding f's memory.
+    Parameters
+    ----------
+    f : callable
+        Accepts a real vector of shape (n,) and returns a real scalar.
+    x : array_like, shape (n,)
+        Nonempty finite real evaluation point; the input is not modified.
+    h : float, default 1e-5
+        Positive finite absolute step that changes each coordinate in
+        floating-point arithmetic.
+    method : {'central', 'forward'}, default 'central'
+        Finite-difference formula.
+
+    Returns
+    -------
+    ndarray of float, shape (n,)
+        Approximate partial derivatives in input-coordinate order.
+
+    Raises
+    ------
+    TypeError
+        If inputs or function outputs are complex or cannot be converted to
+        real numbers.
+    ValueError
+        If input shape, finiteness, step or method is invalid, numeric
+        conversion fails, or output has a wrong/changing shape or is nonfinite.
+    Exception
+        Exceptions from the callable propagate.
+
+    Notes
+    -----
+    Time: O(n*T + n**2); own working space O(n), excluding callable
+    allocations, with T the cost of one evaluation.
+    Central differences use 2*n+1 evaluations; forward differences use
+    n+1. Both include a base evaluation to validate the output.
     """
     x, h = share_input(x, h, method)
     base = share_output(f, x)
@@ -95,15 +176,42 @@ def grad(f, x, h=1e-5, method="central"):
 
 
 def jacobian(F, x, h=1e-5, method="central"):
-    """Estimate the Jacobian of vector function F at vector x.
+    """Estimate the Jacobian of a vector-valued function.
 
-    Parameters: F accepts real x (n,) and returns a nonempty real vector (m,).
-    x must be finite, h a positive finite scalar, method central or forward.
-    Returns float array (m, n): row j, column i is dF[j]/dx[i]. No input mutation.
-    Raises ValueError for invalid inputs/step/method, nonfinite output or
-    changing/nonvector output shape; TypeError for nonnumeric/complex values.
-    Function errors propagate. Evaluations: 2*n+1 central, n+1 forward.
-    Time O(n*T + n**2 + m*n), T = one evaluation; own space O(m*n+n+m).
+    Parameters
+    ----------
+    F : callable
+        Accepts a real vector of shape (n,) and returns a nonempty real vector of shape (m,).
+    x : array_like, shape (n,)
+        Nonempty finite real evaluation point; the input is not modified.
+    h : float, default 1e-5
+        Positive finite absolute step that changes each coordinate in
+        floating-point arithmetic.
+    method : {'central', 'forward'}, default 'central'
+        Finite-difference formula.
+
+    Returns
+    -------
+    ndarray of float, shape (m, n)
+        Jacobian with entry [j, i] approximating dF[j]/dx[i].
+
+    Raises
+    ------
+    TypeError
+        If inputs or function outputs are complex or cannot be converted to
+        real numbers.
+    ValueError
+        If input shape, finiteness, step or method is invalid, numeric
+        conversion fails, or output has a wrong/changing shape or is nonfinite.
+    Exception
+        Exceptions from the callable propagate.
+
+    Notes
+    -----
+    Time: O(n*T + n**2 + m*n); own space O(m*n + n + m), excluding
+    callable allocations, with T the cost of one evaluation.
+    Central differences use 2*n+1 evaluations; forward differences use
+    n+1. Both include a base evaluation to validate the output.
     """
     x, h = share_input(x, h, method)
     base = share_output(F, x)

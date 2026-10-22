@@ -504,7 +504,31 @@ def _check_labels(
     y: np.ndarray | Sequence[int | str | float],
     name: str,
 ) -> np.ndarray:
-    """Return ``y`` as a 1-D, non-empty array of labels (numbers or strings) without NaN."""
+    """Validate a nonempty vector of numeric or string labels.
+
+    Parameters
+    ----------
+    y : array_like, shape (n,)
+        Labels of a supported numeric, boolean or text dtype.
+    name : str
+        Argument name included in error messages.
+
+    Returns
+    -------
+    ndarray, shape (n,)
+        Validated labels with their original dtype.
+
+    Raises
+    ------
+    TypeError
+        If label dtype is unsupported.
+    ValueError
+        If input is empty, not 1-D, ragged or contains floating-point NaN.
+
+    Notes
+    -----
+    Time/space: O(n) worst case for conversion and NaN validation.
+    """
     # Converting to a NumPy array if a list was received, keeping its dtype
     y = np.asarray(y)
 
@@ -535,7 +559,31 @@ def _check_values(
     y: np.ndarray | Sequence[int | float],
     name: str,
 ) -> np.ndarray:
-    """Return ``y`` as a 1-D, non-empty float array without NaN."""
+    """Validate a nonempty numeric vector and convert it to float.
+
+    Parameters
+    ----------
+    y : numeric array_like, shape (n,)
+        Input values; numeric-looking strings are not accepted.
+    name : str
+        Argument name used in validation messages.
+
+    Returns
+    -------
+    ndarray of float, shape (n,)
+        Values without NaN; infinity is not rejected by this helper.
+
+    Raises
+    ------
+    TypeError
+        If dtype is not a supported numeric type.
+    ValueError
+        If input is empty, not 1-D, ragged or contains NaN.
+
+    Notes
+    -----
+    Time and worst-case extra space: O(n); float64 input may be reused.
+    """
     # Converting to a NumPy array if a list was received, keeping its dtype
     y = np.asarray(y)
 
@@ -568,7 +616,29 @@ def _check_same_length(
     b: np.ndarray,
     names: tuple[str, str],
 ) -> None:
-    """Raise if two checked 1-D arrays differ in length."""
+    """Check that two validated vectors have equal lengths.
+
+    Parameters
+    ----------
+    a, b : ndarray, shapes (n,), (m,)
+        Vectors whose sizes are compared.
+    names : pair of str
+        Argument names included in the error message.
+
+    Returns
+    -------
+    None
+        Only validation is performed.
+
+    Raises
+    ------
+    ValueError
+        If the sizes differ.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     # Check if both arrays have one entry per sample: no broadcasting
     if a.size != b.size:
         raise ValueError(
@@ -581,7 +651,29 @@ def _check_same_family(
     b: np.ndarray,
     names: tuple[str, str],
 ) -> None:
-    """Raise if two checked label arrays cannot be compared (numbers never equal text)."""
+    """Check that two validated label vectors use compatible label families.
+
+    Parameters
+    ----------
+    a, b : ndarray, shapes (n,), (m,)
+        Label vectors with supported dtypes.
+    names : pair of str
+        Names to include in the error message.
+
+    Returns
+    -------
+    None
+        Only validation is performed.
+
+    Raises
+    ------
+    TypeError
+        If one vector holds numeric labels and the other holds text labels.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     # Check if both arrays hold the same family of labels: NumPy would compare 1 with "1" as unequal
     # (or silently promote 1 to "1"), giving wrong scores instead of an error
     if _LABEL_FAMILIES[a.dtype.kind] != _LABEL_FAMILIES[b.dtype.kind]:
@@ -594,7 +686,31 @@ def _check_pos_label(
     pos_label: int | float | str,
     y_true: np.ndarray
 ) -> np.ndarray:
-    """Return ``pos_label`` as a 1-element label array of the same family as ``y_true``."""
+    """Validate a scalar positive label against the true-label family.
+
+    Parameters
+    ----------
+    pos_label : scalar
+        Positive class identifier.
+    y_true : ndarray, shape (n,)
+        Previously validated true labels.
+
+    Returns
+    -------
+    ndarray, shape (1,)
+        Positive label with a compatible label family.
+
+    Raises
+    ------
+    TypeError
+        If pos_label is nonscalar, unsupported or incompatible with y_true.
+    ValueError
+        If pos_label contains NaN.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     # Check if pos_label is a single label
     if np.ndim(pos_label) != 0:
         raise TypeError(f"pos_label must be a single label, got {pos_label!r}")
@@ -610,7 +726,31 @@ def _resolve_labels(
     y_pred: np.ndarray,
     labels: np.ndarray | Sequence[int | str | float] | None = None,
 ) -> np.ndarray:
-    """Labels for the rows/columns: the given ones (checked) or the sorted union of both inputs."""
+    """Resolve the confusion-matrix class order and validate optional labels.
+
+    Parameters
+    ----------
+    y_true, y_pred : ndarray, shape (n,)
+        Previously validated, compatible label vectors.
+    labels : array_like, shape (k,), or None
+        Desired class order. None selects the sorted union of observed labels.
+
+    Returns
+    -------
+    ndarray, shape (k,)
+        Unique class labels covering every observed label.
+
+    Raises
+    ------
+    TypeError
+        If supplied labels have unsupported or incompatible dtype.
+    ValueError
+        If labels are empty, not 1-D, duplicated, contain NaN or omit a class.
+
+    Notes
+    -----
+    Time: O(n * log(n) + k * log(k) + n * log(k)); space O(n + k).
+    """
     found = np.unique(np.concatenate([y_true, y_pred]))
 
     if labels is None:
@@ -636,7 +776,31 @@ def _label_index(
     y: np.ndarray,
     classes: np.ndarray,
 ) -> np.ndarray:
-    """Position of each element of ``y`` in ``classes`` (any order); -1 where it is missing."""
+    """Map labels to positions in a possibly unsorted class vector.
+
+    Parameters
+    ----------
+    y : ndarray, shape (n,)
+        Labels to look up.
+    classes : ndarray, shape (k,)
+        Nonempty unique classes with a compatible dtype.
+
+    Returns
+    -------
+    ndarray of integers, shape (n,)
+        Index in the original classes array, or -1 for an absent label.
+
+    Raises
+    ------
+    TypeError
+        If labels cannot be ordered or compared.
+    IndexError
+        If a nonempty y is searched in an empty classes array.
+
+    Notes
+    -----
+    Time: O(k * log(k) + n * log(k)); space O(n + k).
+    """
     order = np.argsort(classes, kind="stable")
     sorted_classes = classes[order]
 
@@ -653,7 +817,30 @@ def _confusion(
     y_pred: np.ndarray,
     classes: np.ndarray,
 ) -> np.ndarray:
-    """Confusion matrix for checked inputs whose labels are all in ``classes``."""
+    """Count checked true/predicted label pairs in the given class order.
+
+    Parameters
+    ----------
+    y_true, y_pred : ndarray, shape (n,)
+        Compatible labels, all present in classes.
+    classes : ndarray, shape (k,)
+        Nonempty unique classes in the desired output order.
+
+    Returns
+    -------
+    ndarray of integers, shape (k, k)
+        Rows are true classes and columns are predicted classes.
+
+    Raises
+    ------
+    ValueError
+        NumPy may reject invalid indices if unchecked labels violate the
+        class-membership precondition.
+
+    Notes
+    -----
+    Time: O(k * log(k) + n * log(k) + k**2); space O(n + k**2).
+    """
     k = classes.size
     t = _label_index(y_true, classes)
     p = _label_index(y_pred, classes)
@@ -669,7 +856,31 @@ def _safe_divide(
     den: np.ndarray | Sequence[int | float],
     zero_division: float,
 ) -> np.ndarray:
-    """``num / den`` elementwise, with ``zero_division`` where ``den == 0``."""
+    """Divide with a configured replacement for zero denominators.
+
+    Parameters
+    ----------
+    num, den : numeric array_like
+        Numerator and denominator with broadcast-compatible shapes.
+    zero_division : float
+        Value to return wherever den equals zero.
+
+    Returns
+    -------
+    ndarray of float, broadcast shape of num and den
+        Quotients with zero denominators replaced.
+
+    Raises
+    ------
+    TypeError
+        If arguments cannot be converted to floats.
+    ValueError
+        If conversion fails or shapes cannot be broadcast.
+
+    Notes
+    -----
+    Time and space: O(B), B is the number of broadcast output elements.
+    """
     num = np.asarray(num, dtype=float)
     den = np.asarray(den, dtype=float)
     out = np.full(np.broadcast_shapes(num.shape, den.shape), zero_division, dtype=float)
@@ -686,7 +897,36 @@ def _precision_recall_f1(
     pos_label: int | float | str,
     zero_division: float,
 ) -> tuple:
-    """Shared body of precision / recall / f1: returns the three results."""
+    """Compute shared per-class or averaged precision, recall and F1.
+
+    Parameters
+    ----------
+    y_true, y_pred : array_like, shape (n,)
+        True and predicted labels from compatible families.
+    average : {'binary', 'macro', 'micro', 'weighted'} or None
+        Reduction rule; None returns per-class scores.
+    pos_label : scalar
+        Positive class for binary averaging.
+    zero_division : number
+        Replacement for undefined ratios; must not be NaN or boolean.
+
+    Returns
+    -------
+    tuple of three floats or three ndarrays of shape (k,)
+        Precision, recall and F1; per-class arrays use sorted class order.
+
+    Raises
+    ------
+    TypeError
+        If label families, pos_label or zero_division have invalid types.
+    ValueError
+        If labels, lengths, averaging mode or binary-class configuration
+        are invalid, or zero_division is NaN.
+
+    Notes
+    -----
+    Time: O(n * log(n) + n * log(k) + k**2); space O(n + k**2).
+    """
     if average not in _AVERAGES:
         raise ValueError(f"average must be one of {_AVERAGES}, got {average!r}")
 
