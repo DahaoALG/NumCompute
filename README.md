@@ -25,6 +25,10 @@ NumCompute/
 │   └── benchmarking.py
 ├── tests/
 │   └── README.md
+├── benchmark/
+│   ├── loops.py              # plain-Python versions (the "loop" side)
+│   ├── run_benchmarks.py     # seeded runner, writes results.md
+│   └── results.md            # latest full run
 └── demo/
     └── quickstart.ipynb
 ```
@@ -197,12 +201,54 @@ metrics.auc(fpr, tpr)                           # 0.75: a positive outscores a n
 
 Inputs are 1-D. Labels can be int, float, bool or str, but numbers and text are never mixed: `accuracy(["0", "1"], [0, 1])` raises `TypeError` instead of scoring 0, which matters for labels read as text by `io.load_csv`. NaN in any input raises `ValueError`. Samples with tied scores form one point on the ROC curve.
 
+### `numcompute.benchmarking`: loop vs vectorised timing
+
+| Function | Returns |
+| -------- | ------- |
+| `time_function(func, repeat=7, number=1, warmup=1)` | Seconds per call for each repeat, shape `(repeat,)` |
+| `compare(case, loop_func, vec_func, repeat=7, number=1, rtol=1e-7, atol=1e-9)` | `{"case", "loop_s", "vec_s", "speedup"}`: median seconds per call; `speedup = loop_s / vec_s` |
+| `environment_info()` | Python, NumPy, OS, CPU and CPU count, `dict[str, str]` |
+| `format_table(rows)` | `compare` results as a Markdown table (the columns of the performance table below); an optional `"notes"` entry in a row fills the Notes column |
+
+The functions passed in take no arguments, so inputs are bound with a lambda. `compare` first checks that both versions return the same result (numbers within tolerance and text must match exactly) and raises `ValueError` if they differ. The median is reported because one slow repeat (OS noise) or an outlier does not move it.
+
+```python
+import numpy as np
+from numcompute import metrics
+from numcompute.benchmarking import compare, format_table
+from benchmark import loops                       # run from the repository root
+
+a, b = np.random.default_rng(0).normal(size=(2, 100_000))
+a_list, b_list = a.tolist(), b.tolist()           # converted outside the timing
+row = compare("mse", lambda: loops.mse_loop(a_list, b_list), lambda: metrics.mse(a, b))
+print(format_table([row]))
+```
+
 .........
 
 ## Performance table
 
-| Operation | NumCompute result | Baseline/result | Notes                                    |
-| --------- | ----------------- | --------------- | ---------------------------------------- |
-| ......    | ?                 | ?               | Benchmark harness pending implementation |
+Python loops (`benchmark/loops.py`) against NumCompute on the same inputs; both versions are checked to give the same result before they are timed. Reproduce from the repository root with:
+
+```bash
+python -m benchmark.run_benchmarks
+```
+
+Inputs come from `np.random.default_rng(42)` at fixed sizes. Times reported are the median of 7 calls. Baseline/result gives the Python-loop time and, in parentheses, the speed-up (loop time / NumCompute time).
+
+Environment: Python 3.14.7, NumPy 2.5.4, Windows 11, Intel CPU with 12 logical cores. Timings could vary between machines and runs. The full report is in `benchmark/results.md`.
+
+| Operation | NumCompute result | Baseline/result | Notes |
+|---|---:|---:|---|
+| io.load_csv dtype=float 20,000 x 5 | 20.943 ms | 33.622 ms (1.6x) | Both parse text line by line; parsing dominates |
+| metrics.accuracy n=100,000 | 0.128 ms | 3.807 ms (29.8x) | One comparison per element, done in C |
+| metrics.confusion_matrix n=100,000 | 4.304 ms | 8.719 ms (2.0x) | Sorts the labels (np.union1d) to accept any label type; the loop uses a dict |
+| metrics.mse n=100,000 | 0.525 ms | 7.994 ms (15.2x) | Element-wise O(n) in C instead of the interpreter |
+| metrics.roc_curve + auc n=2,000 | 0.158 ms | 26.276 ms (166.1x) | The loop compares every positive-negative pair, O(P*N); NumPy sorts once |
+| preprocessing.StandardScaler 20,000 x 10 | 3.479 ms | 52.368 ms (15.1x) | Column means and stds over axis 0, one pass each |
+| stats.histogram n=100,000 bins=20 | 1.749 ms | 10.451 ms (6.0x) | Bins all values at once |
+| sort_search.stable_sort n=100,000 | 12.906 ms | 203.833 ms (15.8x) | Merge sort in Python vs np.sort(kind='stable') |
+| sort_search.topk n=100,000 k=10 | 1.806 ms | 95.117 ms (52.7x) | k passes over the data vs np.argpartition |
+| rank.rank method='average' n=2,000 | 0.447 ms | 272.715 ms (610.6x) | The loop compares every pair, O(n^2); NumPy sorts once |
 
 ## Test requirement
