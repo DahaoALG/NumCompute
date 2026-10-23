@@ -4,6 +4,8 @@ P_AI Assignment 2.1, 2026 S2
 
 Group name: 404 Group Not Found
 
+Demo video link: [A2_Demo](https://drive.google.com/file/d/1r0dqZAtjWeVQaC27oEmmYyk3QhV-nCBy/view?usp=sharing)
+
 A scientific computing toolkit built with Python and NumPy. It includes CSV input, preprocessing, sorting/searching, ranking, statistics, metrics, numerical derivatives, pipelines and reproducible benchmarks.
 
 ## Required structure
@@ -363,28 +365,32 @@ print(format_table([row]))                         # loop/NumPy times and speedu
 
 ## Performance table
 
-Python loops (`benchmark/loops.py`) against NumCompute on the same inputs; both versions are checked to give the same result before they are timed. Reproduce from the repository root with:
+Python loops (`benchmark/loops.py`) against NumCompute on the same inputs; both versions are checked to give the same result before they are timed. Reproduce the full benchmark from the project root with:
 
 ```bash
 python -m benchmark.run_benchmarks
 ```
 
-Inputs come from `np.random.default_rng(42)` at fixed sizes. Times reported are the median of 7 calls. Baseline/result gives the Python-loop time and, in parentheses, the speed-up (loop time / NumCompute time).
+Inputs come from `np.random.default_rng(42)` at fixed sizes. Times are the median of 7 measurements per version. Baseline/result gives the Python-loop time and, in parentheses, the speedup (`loop time / NumCompute time`).
 
-Environment: Python 3.14.7, NumPy 2.5.4, Windows 11, Intel CPU with 12 logical cores. Timings could vary between machines and runs. The full report is in `benchmark/results.md`.
+The table below uses the latest full benchmark output saved in Section 8 of `demo/quickstart.ipynb`, which also contains the full report for this run. The command-line runner writes its own run to `benchmark/results.md`.
 
-| Operation                                | NumCompute result |     Baseline/result | Notes                                                                        |
-| ---------------------------------------- | ----------------: | ------------------: | ---------------------------------------------------------------------------- |
-| io.load_csv dtype=float 20,000 x 5       |         20.943 ms |    33.622 ms (1.6x) | Both parse text line by line; parsing dominates                              |
-| metrics.accuracy n=100,000               |          0.128 ms |    3.807 ms (29.8x) | One comparison per element, done in C                                        |
-| metrics.confusion_matrix n=100,000       |          4.304 ms |     8.719 ms (2.0x) | Sorts the labels (np.union1d) to accept any label type; the loop uses a dict |
-| metrics.mse n=100,000                    |          0.525 ms |    7.994 ms (15.2x) | Element-wise O(n) in C instead of the interpreter                            |
-| metrics.roc_curve + auc n=2,000          |          0.158 ms |  26.276 ms (166.1x) | The loop compares every positive-negative pair, O(P*N); NumPy sorts once     |
-| preprocessing.StandardScaler 20,000 x 10 |          3.479 ms |   52.368 ms (15.1x) | Column means and stds over axis 0, one pass each                             |
-| stats.histogram n=100,000 bins=20        |          1.749 ms |    10.451 ms (6.0x) | Bins all values at once                                                      |
-| sort_search.stable_sort n=100,000        |         12.906 ms |  203.833 ms (15.8x) | Merge sort in Python vs np.sort(kind='stable')                               |
-| sort_search.topk n=100,000 k=10          |          1.806 ms |   95.117 ms (52.7x) | k passes over the data vs np.argpartition                                    |
-| rank.rank method='average' n=2,000       |          0.447 ms | 272.715 ms (610.6x) | The loop compares every pair, O(n^2); NumPy sorts once                       |
+Environment: Python 3.12.8, NumPy 2.2.4, OS `Windows-10-10.0.19045-SP0`, CPU `Intel64 Family 6 Model 151 Stepping 2, GenuineIntel`, 20 logical CPUs.
+
+Timings and speedups can differ between team members because hardware, software and system load vary, while the overall performance trend can remain consistent. Rank, top-k and AUC speedups include algorithm differences as well as vectorization.
+
+| Operation                                | NumCompute result |       Baseline/result | Notes                                                                        |
+| ---------------------------------------- | ----------------: | --------------------: | ---------------------------------------------------------------------------- |
+| io.load_csv dtype=float 20,000 x 5       |         20.604 ms |      30.011 ms (1.5x) | Both parse text line by line; parsing dominates                              |
+| metrics.accuracy n=100,000               |          0.084 ms |      3.012 ms (35.8x) | One comparison per element, done in C                                        |
+| metrics.confusion_matrix n=100,000       |          4.258 ms |       7.220 ms (1.7x) | Sorts the labels (np.union1d) to accept any label type; the loop uses a dict |
+| metrics.mse n=100,000                    |          0.116 ms |      9.284 ms (80.1x) | Element-wise O(n) in C instead of the interpreter                            |
+| metrics.roc_curve + auc n=2,000          |          0.127 ms |    17.987 ms (142.1x) | The loop compares every positive-negative pair, O(P*N); NumPy sorts once     |
+| preprocessing.StandardScaler 20,000 x 10 |          3.060 ms |     42.843 ms (14.0x) | Column means and stds over axis 0, one pass each                             |
+| stats.histogram n=100,000 bins=20        |          1.082 ms |     13.002 ms (12.0x) | Bins all values at once                                                      |
+| sort_search.stable_sort n=100,000        |          5.406 ms |    152.227 ms (28.2x) | Merge sort in Python vs np.sort(kind='stable')                               |
+| sort_search.topk n=100,000 k=10          |          0.234 ms |    32.721 ms (139.7x) | k passes over the data vs np.argpartition                                    |
+| rank.rank method='average' n=2,000       |          0.081 ms | 108.252 ms (1,341.4x) | The loop compares every pair, O(n^2); NumPy sorts once                       |
 
 ## Tests
 
@@ -427,7 +433,7 @@ python -m benchmark.run_benchmarks --quick
 
 ### Sample dataset
 
-The dataset and generator described here follow the repository's `main` branch. `demo/data/sample.csv` contains 3,000 synthetic records from six fictional city profiles, with 500 records generated per city before hiding some labels. `age` and `income` are input features, `city` is the true class, and `city_predict` is a rule-based simulated prediction rather than output from a trained ML model. 
+The dataset and generator described here follow the repository's `main` branch. `demo/data/sample.csv` contains 3,000 synthetic records from six fictional city profiles, with 500 records generated per city before hiding some labels. `age` and `income` are input features, `city` is the true class, and `city_predict` is a rule-based simulated prediction rather than output from a trained ML model.
 
 - Missing values: 180 ages, 240 incomes and 80 true city labels. Numeric missing tokens include `""`, `"NA"`, `"NaN"`, `"NULL"` and `"N/A"`; `city_predict` is complete.
 - Repeated incomes: 14 Sydney rows at 115,000 and 21 Melbourne rows at 90,000 demonstrate tied ranking methods.
