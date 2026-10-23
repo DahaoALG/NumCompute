@@ -345,7 +345,54 @@ def _iter_chunks(
     encoding: str,
     n_cols: int,
 ) -> Iterator[np.ndarray]:
-    """Generator behind :func:`iter_csv_chunks`; receives arguments already checked."""
+    """Yield cleaned nonempty chunks from a validated CSV request.
+
+    Parameters
+    ----------
+    path : path-like
+        CSV file to stream.
+    chunk_size : int
+        Maximum number of physical lines per input chunk.
+    delimiter : str or None
+        Field separator.
+    has_header : bool
+        Whether to skip the first line.
+    usecols : tuple of int or None
+        Selected column positions.
+    dtype : numpy.dtype
+        Validated output dtype.
+    missing_values : sequence of str
+        Missing-cell tokens.
+    fill_value : number, str or None
+        Validated replacement or the dtype-dependent default.
+    on_missing : {'fill', 'skip', 'raise'}
+        Missing-value policy.
+    comments : str or None
+        Comment prefix.
+    encoding : str
+        File encoding.
+    n_cols : int
+        Expected number of output columns.
+
+    Returns
+    -------
+    iterator of ndarray, shape (b, n_cols)
+        Cleaned chunks; empty chunks are not yielded.
+
+    Raises
+    ------
+    OSError
+        If a file cannot be opened or read.
+    ValueError
+        If parsing encounters inconsistent columns or invalid values.
+        Also raised for a header-width mismatch or missing-value policy failure.
+
+    Notes
+    -----
+    Time: O(L) for total text length, with bounded token/marker sizes.
+    Space: O(chunk_size * row_width) for one chunk and parser buffers.
+    File and data errors arise during iteration.
+    """
     with open(path, encoding=encoding) as f:
         if has_header:
             next(f, None)  # skip the header line if there is one
@@ -378,7 +425,27 @@ def _iter_chunks(
 
 
 def _check_dtype(dtype: type | str | np.dtype) -> np.dtype:
-    """Normalise ``dtype`` and reject kinds the parser does not support."""
+    """Normalize and validate a CSV output dtype.
+
+    Parameters
+    ----------
+    dtype : type, str or numpy.dtype
+        Requested float, signed/unsigned integer or Unicode dtype.
+
+    Returns
+    -------
+    numpy.dtype
+        Normalized supported dtype.
+
+    Raises
+    ------
+    TypeError
+        If NumPy cannot interpret dtype or its kind is unsupported.
+
+    Notes
+    -----
+    Time and space: O(1) for ordinary scalar dtype specifications.
+    """
     try:
         dt = np.dtype(dtype)
     except TypeError as e:
@@ -391,7 +458,27 @@ def _check_dtype(dtype: type | str | np.dtype) -> np.dtype:
 
 
 def _check_on_missing(on_missing: str) -> None:
-    """Check if a valid missing strategy is provided."""
+    """Validate a missing-cell policy.
+
+    Parameters
+    ----------
+    on_missing : str
+        One of 'fill', 'skip' or 'raise'.
+
+    Returns
+    -------
+    None
+        Only validation is performed.
+
+    Raises
+    ------
+    ValueError
+        If the policy is unsupported.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     if on_missing not in _ON_MISSING:
         raise ValueError(f"on_missing must be one of {_ON_MISSING}, got {on_missing!r}")
 
@@ -400,7 +487,34 @@ def _check_fill_value(
     fill_value: float | int | str | None,
     dtype: np.dtype,
 ) -> float | int | str | None:
-    """Check ``fill_value`` fits the output dtype and return it converted (None stays None)."""
+    """Convert a replacement value without silently truncating integer output.
+
+    Parameters
+    ----------
+    fill_value : number, str or None
+        Requested replacement; None keeps dtype-dependent behavior.
+    dtype : numpy.dtype
+        Previously validated CSV output dtype.
+
+    Returns
+    -------
+    number, str or None
+        Compatible replacement. Unicode output converts values to strings;
+        integer output requires a whole value within the dtype range.
+
+    Raises
+    ------
+    TypeError
+        If a numeric dtype receives text, a nonnumeric value or a
+        nonintegral integer replacement.
+    ValueError
+        If an integer replacement is outside the dtype range.
+
+    Notes
+    -----
+    Time and space: O(1) for numeric values; O(L) for string conversion
+    with L characters in the replacement.
+    """
     if fill_value is None:
         return None
 
@@ -433,7 +547,29 @@ def _check_fill_value(
 
 
 def _check_chunk_size(chunk_size: int) -> None:
-    """Check ``chunk_size`` is a positive integer."""
+    """Validate a positive integer chunk size.
+
+    Parameters
+    ----------
+    chunk_size : int or numpy.integer
+        Number of input lines per chunk.
+
+    Returns
+    -------
+    None
+        Only validation is performed.
+
+    Raises
+    ------
+    TypeError
+        If chunk_size is not an integer.
+    ValueError
+        If chunk_size is less than one.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     if not isinstance(chunk_size, (int, np.integer)):
         raise TypeError(f"chunk_size must be an int, got {type(chunk_size).__name__}")
 
@@ -445,7 +581,34 @@ def _resolve_cols(
     usecols: int | str | Sequence[int | str] | None,
     header: list[str],
 ) -> tuple[int, ...] | None:
-    """Turn ``usecols`` (positions and/or names) into a tuple of non-negative positions."""
+    """Resolve column names and positions into parser column indices.
+
+    Parameters
+    ----------
+    usecols : int, str, sequence of int/str, or None
+        Column selection; None keeps all columns.
+    header : list[str]
+        Available column names, or an empty list without a header. Negative
+        indices are normalized when header length is known.
+
+    Returns
+    -------
+    tuple of int or None
+        Selected column positions in requested order; None for all columns.
+
+    Raises
+    ------
+    TypeError
+        If a selection entry is not an integer or string.
+    ValueError
+        If selection is empty, a name is absent/has no header, or an index
+        is outside a known header's bounds.
+
+    Notes
+    -----
+    Time: O(s * c); space O(s), with s selections and c header columns,
+    assuming bounded column-name lengths.
+    """
     if usecols is None:
         return None
 
@@ -498,7 +661,55 @@ def _parse(
     n_cols: int,
     row_offset: int,
 ) -> tuple[np.ndarray, int]:
-    """Parse a file path or list of lines; return (clean 2-D array, rows parsed)."""
+    """Parse one file or chunk and apply the missing-cell policy.
+
+    Parameters
+    ----------
+    source : path-like or list[str]
+        File to read or text lines to parse.
+    skip_header : int
+        Leading physical lines to skip.
+    delimiter : str or None
+        Field separator; None requests whitespace splitting.
+    usecols : tuple of int or None
+        Selected column positions, or None for all columns.
+    dtype : numpy.dtype
+        Validated output dtype.
+    missing_values : sequence of str
+        Tokens treated as missing.
+    comments : str or None
+        Comment prefix, or None to disable comment handling.
+    encoding : str
+        Encoding used when reading text.
+    fill_value : number, str or None
+        Validated replacement; None uses empty text or NaN.
+    on_missing : {'fill', 'skip', 'raise'}
+        Replace missing cells, discard incomplete rows or raise.
+    n_cols : int
+        Output width for an empty result.
+    row_offset : int
+        Previously parsed row count for missing-value error messages.
+
+    Returns
+    -------
+    tuple of (ndarray, int)
+        Cleaned 2-D data and parsed row count before dropping missing rows.
+        Empty input returns shape (0, n_cols) and count zero.
+
+    Raises
+    ------
+    OSError
+        If a file cannot be opened or read.
+    ValueError
+        If parsing encounters inconsistent columns or invalid values.
+        Also raised for missing data with 'raise', or missing integer cells
+        without an explicit fill value when using 'fill'.
+
+    Notes
+    -----
+    Time: O(L + n * c); space O(L + n * c), where L is input text length
+    and (n, c) the parsed shape; assume bounded marker count.
+    """
 
     options = dict(
         skip_header=skip_header,
@@ -565,7 +776,45 @@ def _read_general(
     comments: str | None,
     encoding: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Any dtype, any missing markers: ``np.genfromtxt`` with a mask. Returns (values, missing)."""
+    """Parse supported dtypes with NumPy's masked genfromtxt reader.
+
+    Parameters
+    ----------
+    source : path-like or list[str]
+        File to read or text lines to parse.
+    skip_header : int
+        Leading physical lines to skip.
+    delimiter : str or None
+        Field separator; None requests whitespace splitting.
+    usecols : tuple of int or None
+        Selected column positions, or None for all columns.
+    dtype : numpy.dtype
+        Validated output dtype.
+    missing_values : sequence of str
+        Tokens treated as missing.
+    comments : str or None
+        Comment prefix, or None to disable comment handling.
+    encoding : str
+        Encoding used when reading text.
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray of bool)
+        Parsed values and a same-shape 2-D missing mask. Float NaNs are
+        marked missing even when produced by numeric conversion.
+
+    Raises
+    ------
+    OSError
+        If a file cannot be opened or read.
+    ValueError
+        If parsing encounters inconsistent columns or invalid values.
+
+    Notes
+    -----
+    Time: O(L + n * c); space O(L + n * c), for text length L and
+    parsed shape (n, c), assuming bounded marker count.
+    """
 
     with warnings.catch_warnings():
         # genfromtxt warns on empty input; the caller handles that case
@@ -606,7 +855,46 @@ def _read_fast(
     comments: str | None,
     encoding: str,
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    """Fast path for text and float data, parsed in C by ``np.loadtxt``."""
+    """Attempt loadtxt parsing for text or floating-point data.
+
+    Parameters
+    ----------
+    source : path-like or list[str]
+        File to read or text lines to parse.
+    skip_header : int
+        Leading physical lines to skip.
+    delimiter : str or None
+        Field separator; None requests whitespace splitting.
+    usecols : tuple of int or None
+        Selected column positions, or None for all columns.
+    dtype : numpy.dtype
+        Validated output dtype.
+    missing_values : sequence of str
+        Tokens treated as missing.
+    comments : str or None
+        Comment prefix, or None to disable comment handling.
+    encoding : str
+        Encoding used when reading text.
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray of bool) or None
+        Parsed 2-D values and matching missing mask. None requests fallback
+        when dtype, delimiter, markers or parsing do not suit this fast path.
+
+    Raises
+    ------
+    OSError
+        If the input file cannot be read.
+    TypeError
+        If parser options violate the expected validated argument types.
+
+    Notes
+    -----
+    Time: O(L * (1 + M) + n * c); space O(L + n * c), where M is total
+    marker-pattern length, L input text length, and (n, c) parsed shape.
+    Float parsing replaces recognized missing fields with 'nan' before loadtxt.
+    """
     if delimiter is None:
         return None
 
@@ -681,7 +969,45 @@ def _read_fast_text(
     comments: str | None,
     encoding: str,
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    """Text fast path: ``np.loadtxt(dtype=str)`` reads every cell as it is."""
+    """Attempt loadtxt text parsing and build a missing-cell mask.
+
+    Parameters
+    ----------
+    source : path-like or list[str]
+        File to read or text lines to parse.
+    skip_header : int
+        Leading physical lines to skip.
+    delimiter : str or None
+        Field separator; None requests whitespace splitting.
+    usecols : tuple of int or None
+        Selected column positions, or None for all columns.
+    dtype : numpy.dtype
+        Validated output dtype.
+    missing_values : sequence of str
+        Tokens treated as missing.
+    comments : str or None
+        Comment prefix, or None to disable comment handling.
+    encoding : str
+        Encoding used when reading text.
+
+    Returns
+    -------
+    tuple of (ndarray of str, ndarray of bool) or None
+        Stripped 2-D values and same-shape missing mask; None on a loadtxt
+        ValueError so the caller can use the general parser.
+
+    Raises
+    ------
+    OSError
+        If the input file cannot be read.
+    TypeError
+        If parser options violate validated argument types.
+
+    Notes
+    -----
+    Time: O(L + n * c * M); space O(L + n * c), with M marker count,
+    text length L and parsed shape (n, c), assuming bounded token lengths.
+    """
 
     try:
         with warnings.catch_warnings():

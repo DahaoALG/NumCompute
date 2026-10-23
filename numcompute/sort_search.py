@@ -25,11 +25,47 @@ __all__ = [
 
 
 def _is_nan(value: object) -> bool:
+    """Test whether a scalar is a floating-point NaN.
+
+    Parameters
+    ----------
+    value : object
+        Scalar to test; nonfloating objects return false.
+
+    Returns
+    -------
+    bool
+        True only for Python or NumPy floating-point NaN.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     return isinstance(value, (float, np.floating)) and bool(np.isnan(value))
 
 
 def _less(left: object, right: object) -> bool:
-    """Compare real numbers with NaNs consistently ordered last."""
+    """Compare numeric scalars with NaNs ordered after all non-NaN values.
+
+    Parameters
+    ----------
+    left, right : real numeric scalar
+        Values to compare; NaNs are allowed.
+
+    Returns
+    -------
+    bool
+        Whether left precedes right; neither NaN is less than the other.
+
+    Raises
+    ------
+    TypeError
+        If non-NaN inputs cannot be compared numerically.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     left_is_nan = _is_nan(left)
     right_is_nan = _is_nan(right)
     if left_is_nan:
@@ -40,6 +76,31 @@ def _less(left: object, right: object) -> bool:
 
 
 def _check_kth(kth: int, size: int) -> int:
+    """Validate and normalize a zero-based selection rank.
+
+    Parameters
+    ----------
+    kth : int
+        Requested rank; booleans are rejected.
+    size : int
+        Number of available elements.
+
+    Returns
+    -------
+    int
+        Rank satisfying 0 <= kth < size.
+
+    Raises
+    ------
+    TypeError
+        If kth is not an integer or is boolean.
+    ValueError
+        If kth is outside the valid range.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     if isinstance(kth, (bool, np.bool_)) or not isinstance(kth, Integral):
         raise TypeError("kth must be an integer")
     index = int(kth)
@@ -49,6 +110,27 @@ def _check_kth(kth: int, size: int) -> int:
 
 
 def _median_of_three(first: object, middle: object, last: object) -> object:
+    """Choose the median of three values using the NaN-last ordering.
+
+    Parameters
+    ----------
+    first, middle, last : real numeric scalar
+        Candidate pivot values.
+
+    Returns
+    -------
+    scalar
+        The middle value in sorted order; one of the original candidates.
+
+    Raises
+    ------
+    TypeError
+        If candidate values cannot be compared.
+
+    Notes
+    -----
+    Time and space: O(1).
+    """
     if _less(first, middle):
         if _less(middle, last):
             return middle
@@ -61,7 +143,35 @@ def _median_of_three(first: object, middle: object, last: object) -> object:
 def _partition_indices(
     values: np.ndarray, indices: list[int], low: int, high: int, pivot: object
 ) -> tuple[int, int]:
-    """Three-way partition indices around pivot; return the equal interval."""
+    """Partition an index interval in place into less/equal/greater groups.
+
+    Parameters
+    ----------
+    values : ndarray, shape (n,)
+        Read-only reference values.
+    indices : list[int]
+        Valid indices into values; rearranged in place.
+    low, high : int
+        Inclusive bounds of the interval to partition.
+    pivot : real numeric scalar
+        Partition value; comparison orders NaNs last.
+
+    Returns
+    -------
+    tuple of (int, int)
+        Inclusive bounds of the equal-to-pivot interval; it can be empty.
+
+    Raises
+    ------
+    IndexError
+        If interval bounds or indices are invalid.
+    TypeError
+        If values cannot be compared.
+
+    Notes
+    -----
+    Time: O(high - low + 1). Extra space: O(1); values are not modified.
+    """
     less_end = low
     current = low
     greater_start = high
@@ -83,7 +193,35 @@ def _partition_indices(
 
 
 def _select_indices(values: np.ndarray, indices: list[int], kth: int) -> None:
-    """Rearrange indices in place so the value at sorted rank kth is in place."""
+    """Rearrange indices in place to select a zero-based sorted rank.
+
+    Parameters
+    ----------
+    values : ndarray, shape (n,)
+        Read-only real values, possibly containing NaN.
+    indices : list[int]
+        Valid indices to reorder.
+    kth : int
+        Already validated rank in [0, len(indices)).
+
+    Returns
+    -------
+    None
+        Mutates indices so indices[kth] references the selected value; the
+        remaining positions are only partially ordered.
+
+    Raises
+    ------
+    IndexError
+        If indices are invalid.
+    TypeError
+        If referenced values cannot be compared.
+
+    Notes
+    -----
+    Typical time O(n), worst-case O(n**2); extra space O(1), excluding
+    the supplied index list. Uses median-of-three pivots.
+    """
     low = 0
     high = len(indices) - 1
     while low <= high:

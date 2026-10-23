@@ -10,12 +10,35 @@ from .utils import check_array
 
 
 def mean(x: np.ndarray, axis: int = None, skip_nan: bool = False):
-    """Mean of x along axis.
+    """Compute the mean along an axis.
 
-    Args: x array of any shape; axis None reduces all elements.
-    Returns: float when axis is None, else array with that axis removed.
-    Raises: TypeError if x is not numeric; ValueError if x is empty.
-    Complexity: O(n) time, O(1) extra space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Data converted to float.
+    axis : int or None, default None
+        Reduction axis; None reduces all values. On (n, d), axis=0 gives (d,).
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        A Python float when axis=None; otherwise the reduced array with
+        the selected axis removed (possibly a zero-dimensional array scalar).
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data.
+    ValueError
+        If x is empty or axis is invalid (including NumPy axis errors).
+
+    Notes
+    -----
+    Time: O(N), N=x.size. Space: O(N) in the worst case for conversion,
+    NaN handling and the output; float inputs may avoid a conversion copy.
+    All-NaN slices return NaN with NumPy's warning when skip_nan=True.
     """
     x = check_array(x)
     if skip_nan:
@@ -29,12 +52,34 @@ def mean(x: np.ndarray, axis: int = None, skip_nan: bool = False):
 
 
 def median(x: np.ndarray, axis: int = None, skip_nan: bool = False):
-    """Median of x along axis (average of the two middle values when n is even).
+    """Compute the median along an axis.
 
-    Args: x array of any shape; axis None reduces all elements.
-    Returns: float when axis is None, else array with that axis removed.
-    Raises: TypeError if x is not numeric; ValueError if x is empty.
-    Complexity: O(n) average time (np.partition), O(n) space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Data converted to float.
+    axis : int or None, default None
+        Reduction axis; None reduces all values. On (n, d), axis=0 gives (d,).
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        A Python float when axis=None; otherwise the reduced array with
+        the selected axis removed (possibly a zero-dimensional array scalar).
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data.
+    ValueError
+        If x is empty or axis is invalid (including NumPy axis errors).
+
+    Notes
+    -----
+    Median has a conservative O(N * log(N)) time bound and O(N) space.
+    All-NaN slices return NaN with NumPy's warning when skip_nan=True.
     """
     x = check_array(x)
     if skip_nan:
@@ -48,12 +93,36 @@ def median(x: np.ndarray, axis: int = None, skip_nan: bool = False):
 
 
 def std(x: np.ndarray, axis: int = None, ddof: int = 0, skip_nan: bool = False):
-    """Standard deviation of x along axis.
+    """Compute the standard deviation along an axis.
 
-    Args: x array of any shape; ddof 0 for population, 1 for the sample estimate.
-    Returns: float when axis is None, else array with that axis removed.
-    Raises: ValueError if fewer than ddof + 1 values are available (would divide by zero).
-    Complexity: O(n) time, O(n) space for the centred copy.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Data converted to float.
+    axis : int or None, default None
+        Reduction axis; None reduces all values. On (n, d), axis=0 gives (d,).
+    ddof : int, default 0
+        Divisor is the number of included values minus ddof.
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        Float for axis=None; otherwise the input shape with axis removed.
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data.
+    ValueError
+        If x is empty or axis is invalid (including NumPy axis errors).
+        Also raised when any reduced group has no more than ddof values.
+
+    Notes
+    -----
+    Time and worst-case space: O(N), N=x.size, including conversion and
+    centred/NaN temporary arrays.
     """
     x = check_array(x)
     if skip_nan:
@@ -74,12 +143,35 @@ def std(x: np.ndarray, axis: int = None, ddof: int = 0, skip_nan: bool = False):
 
 
 def min(x: np.ndarray, axis: int = None, skip_nan: bool = False):
-    """Minimum of x along axis. Named min to match the spec; it shadows the builtin inside this module.
+    """Compute the minimum along an axis.
 
-    Args: x array of any shape; axis None reduces all elements.
-    Returns: float when axis is None, else array with that axis removed.
-    Raises: TypeError if x is not numeric; ValueError if x is empty.
-    Complexity: O(n) time, O(1) extra space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Data converted to float.
+    axis : int or None, default None
+        Reduction axis; None reduces all values. On (n, d), axis=0 gives (d,).
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        A Python float when axis=None; otherwise the reduced array with
+        the selected axis removed (possibly a zero-dimensional array scalar).
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data.
+    ValueError
+        If x is empty or axis is invalid (including NumPy axis errors).
+
+    Notes
+    -----
+    Time: O(N), N=x.size. Space: O(N) in the worst case for conversion,
+    NaN handling and the output; float inputs may avoid a conversion copy.
+    All-NaN slices return NaN with NumPy's warning when skip_nan=True.
     """
     x = check_array(x)
     if skip_nan:
@@ -93,12 +185,35 @@ def min(x: np.ndarray, axis: int = None, skip_nan: bool = False):
 
 
 def max(x: np.ndarray, axis: int = None, skip_nan: bool = False):
-    """Maximum of x along axis. See min.
+    """Compute the maximum along an axis.
 
-    Args: x array of any shape; axis None reduces all elements.
-    Returns: float when axis is None, else array with that axis removed.
-    Raises: TypeError if x is not numeric; ValueError if x is empty.
-    Complexity: O(n) time, O(1) extra space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Data converted to float.
+    axis : int or None, default None
+        Reduction axis; None reduces all values. On (n, d), axis=0 gives (d,).
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        A Python float when axis=None; otherwise the reduced array with
+        the selected axis removed (possibly a zero-dimensional array scalar).
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data.
+    ValueError
+        If x is empty or axis is invalid (including NumPy axis errors).
+
+    Notes
+    -----
+    Time: O(N), N=x.size. Space: O(N) in the worst case for conversion,
+    NaN handling and the output; float inputs may avoid a conversion copy.
+    All-NaN slices return NaN with NumPy's warning when skip_nan=True.
     """
     x = check_array(x)
     if skip_nan:
@@ -112,13 +227,39 @@ def max(x: np.ndarray, axis: int = None, skip_nan: bool = False):
 
 
 def quantile(x: np.ndarray, q, axis: int = None, method: str = "linear", skip_nan: bool = False):
-    """Quantile(s) of x along axis.
+    """Compute quantiles along an axis.
 
-    Args: q one probability or a sequence of them, each in [0, 1];
-          method 'linear' | 'lower' | 'higher' | 'midpoint' | 'nearest'.
-    Returns: float for one q and axis None; otherwise an array, with a leading axis of len(q) for a sequence.
-    Raises: ValueError if q is outside [0, 1] or method is unknown.
-    Complexity: O(n) average time, O(n) space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Input data converted to float.
+    q : float or 1-D array_like
+        One or more probabilities in [0, 1].
+    axis : int or None, default None
+        Axis to reduce; None flattens the data.
+    method : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}
+        Quantile interpolation method; default 'linear'.
+    skip_nan : bool, default False
+        Ignore NaNs if true, otherwise propagate them.
+
+    Returns
+    -------
+    float or ndarray
+        Scalar q and axis=None return a float. Otherwise scalar q removes
+        the reduced axis; a sequence prepends an axis of length len(q).
+
+    Raises
+    ------
+    TypeError
+        If x or q cannot be converted to numbers.
+    ValueError
+        If x/q is empty, q is invalid, method is unsupported or axis is invalid.
+
+    Notes
+    -----
+    Conservative time: O(N * log(N) + output_size); space O(N + output_size),
+    where N=x.size. NumPy partition-based selection can be faster.
+    NaN handling follows NumPy; all-NaN slices may emit a warning.
     """
     x = check_array(x)
     q = np.asarray(q, dtype=float)
@@ -138,12 +279,36 @@ def quantile(x: np.ndarray, q, axis: int = None, method: str = "linear", skip_na
 
 
 def histogram(x: np.ndarray, bins=10, range: tuple = None, density: bool = False):
-    """Histogram of the flattened data. NaN is always dropped because it cannot be binned.
+    """Bin flattened data after discarding NaN values.
 
-    Args: bins number of equal-width bins or explicit edges; range (low, high) when bins is a number.
-    Returns: (counts of shape (b,), edges of shape (b + 1,)).
-    Raises: ValueError if no non-NaN value is left.
-    Complexity: O(n log b) time, O(n + b) space.
+    Parameters
+    ----------
+    x : numeric array_like, any nonempty shape
+        Input flattened to one dimension.
+    bins : int or sequence of edges, default 10
+        Number of equal-width bins or explicit increasing edges.
+    range : pair of numbers or None, default None
+        Bounds for automatically chosen edges; values outside are ignored.
+    density : bool, default False
+        If true, normalize counts so the density integral is one.
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray)
+        Counts or densities of shape (b,) and bin edges of shape (b+1,).
+        All bins except the last exclude the right endpoint.
+
+    Raises
+    ------
+    TypeError
+        If x cannot be converted to numeric data or bins has invalid type.
+    ValueError
+        If x is empty, all values are NaN, or bins/range is invalid.
+
+    Notes
+    -----
+    Conservative time: O(N * log(N) + N * log(b) + b); space O(N + b),
+    N=x.size. NumPy uses faster paths for equal-width bins.
     """
     x = check_array(x).ravel()
     x = x[~np.isnan(x)]
@@ -153,20 +318,90 @@ def histogram(x: np.ndarray, bins=10, range: tuple = None, density: bool = False
 
 
 class RunningStats:
-    """Welford streaming mean / variance / min / max, updated one batch at a time.
+    """Accumulate per-feature streaming moments, minima and maxima by batches.
 
-    Args: skip_nan True drops rows that contain NaN before updating.
-    Attributes: n rows seen; mean, m2 (sum of squared deviations), min, max of shape (d,).
-    Raises: ValueError if a batch has a different number of features; RuntimeError if var() is called before data.
-    Complexity: update O(b * d) time for b rows; O(d) memory however many rows are seen.
+    Parameters
+    ----------
+    skip_nan : bool, default False
+        Drop entire rows containing NaN when true. Otherwise NaN propagates
+        into the affected feature statistics.
+
+    Attributes
+    ----------
+    n : int
+        Number of retained rows, initially zero.
+    mean : ndarray, shape (d,)
+        Running means, created after the first retained batch.
+    m2 : ndarray, shape (d,)
+        Running sums of squared deviations from the means.
+    min, max : ndarray, shape (d,)
+        Running minima and maxima.
+
+    Raises
+    ------
+    ValueError
+        If a batch has invalid dimensions or a different feature count, or
+        variance/standard deviation is requested with n <= ddof.
+    RuntimeError
+        If variance/standard deviation is requested before any retained data.
+
+    Notes
+    -----
+    Uses Chan/Welford moment merging. Updating b rows and d features takes
+    O(b*d) time and temporary space; persistent state is O(d), independent
+    of the total number of rows.
     """
 
     def __init__(self, skip_nan: bool = False):
+        """Initialize an empty streaming accumulator.
+
+        Parameters
+        ----------
+        skip_nan : bool, default False
+            If true, discard each incoming row containing any NaN. Otherwise
+            NaN propagates into the statistics for its feature.
+
+        Returns
+        -------
+        None
+            Set n=0; feature arrays are created by the first retained batch.
+
+        Notes
+        -----
+        Time and space: O(1).
+        """
         self.skip_nan = skip_nan
         self.n = 0
 
     def update(self, x: np.ndarray) -> "RunningStats":
-        """Fold a scalar, a (b,) vector of one feature, or a (b, d) batch into the running statistics."""
+        """Merge an incoming batch into the stored statistics.
+
+        Parameters
+        ----------
+        x : numeric scalar or array_like, shape (b,) or (b, d)
+            A scalar is one sample with one feature. A 1-D array is b samples of
+            one feature, not one sample of b features. Later batches must use d
+            features. With skip_nan=True, discard complete rows containing NaN.
+
+        Returns
+        -------
+        RunningStats
+            The updated instance (self). An empty or fully discarded batch does
+            not change state. n counts retained rows; feature statistics are (d,).
+
+        Raises
+        ------
+        TypeError
+            If x cannot be converted to a numeric array.
+        ValueError
+            If conversion fails, x has more than two dimensions, or a nonempty
+            batch has a different feature count.
+
+        Notes
+        -----
+        Time: O(b * d). Temporary space: O(b * d); persistent state O(d).
+        Combines batch moments with stored moments using the Chan/Welford formula.
+        """
         x = np.asarray(x, dtype=float)
         if x.ndim < 2:
             x = x.reshape(-1, 1)
@@ -200,7 +435,30 @@ class RunningStats:
         return self
 
     def var(self, ddof: int = 0) -> np.ndarray:
-        """Running variance per feature. Raises ValueError when n <= ddof."""
+        """Return the accumulated per-feature variance.
+
+        Parameters
+        ----------
+        ddof : int, default 0
+            Degrees-of-freedom correction: denominator is n - ddof.
+            Use 0 for population variance or 1 for a sample estimate.
+
+        Returns
+        -------
+        ndarray, shape (d,)
+            One value per feature over retained rows.
+
+        Raises
+        ------
+        RuntimeError
+            If no samples have been accumulated.
+        ValueError
+            If n <= ddof.
+
+        Notes
+        -----
+        Time and output space: O(d).
+        """
         if self.n == 0:
             raise RuntimeError("no data yet; call update() first")
         if self.n <= ddof:
@@ -208,7 +466,30 @@ class RunningStats:
         return self.m2 / (self.n - ddof)
 
     def std(self, ddof: int = 0) -> np.ndarray:
-        """Running standard deviation per feature, sqrt(var(ddof))."""
+        """Return the accumulated per-feature standard deviation.
+
+        Parameters
+        ----------
+        ddof : int, default 0
+            Degrees-of-freedom correction: denominator is n - ddof.
+            Use 0 for population variance or 1 for a sample estimate.
+
+        Returns
+        -------
+        ndarray, shape (d,)
+            One value per feature over retained rows.
+
+        Raises
+        ------
+        RuntimeError
+            If no samples have been accumulated.
+        ValueError
+            If n <= ddof.
+
+        Notes
+        -----
+        Time and output space: O(d).
+        """
         return np.sqrt(self.var(ddof))
 
 
