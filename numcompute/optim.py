@@ -1,10 +1,8 @@
-"""Finite-difference gradients/Jacobians and optional line search.
+"""Finite-difference gradients and Jacobians.
 
 Task allocation: Shuhao.
-"""
 
-# TODO (Shuhao): implement finite-difference derivatives and line-search tools.
-"""Approximate derivatives by changing one input coordinate at a time.
+Approximate derivatives by changing one input coordinate at a time.
 
 Forward: (f(x + h) - f(x)) / h.
 Central: (f(x + h) - f(x - h)) / (2*h).
@@ -15,8 +13,10 @@ to user functions; each evaluation receives a copy.
 
 import numpy as np
 
+__all__ = ["grad", "jacobian"]
 
-def share_input(x, h, method):
+
+def _check_input(x, h, method):
     """Validate a finite-difference input vector and perturbation.
 
     Parameters
@@ -71,7 +71,7 @@ def share_input(x, h, method):
     return x, h
 
 
-def share_output(function, x, expected_shape=None):
+def _evaluate(function, x, expected_shape=None):
     """Evaluate a callable on a copy and check its numeric output.
 
     Parameters
@@ -153,8 +153,8 @@ def grad(f, x, h=1e-5, method="central"):
     Central differences use 2*n+1 evaluations; forward differences use
     n+1. Both include a base evaluation to validate the output.
     """
-    x, h = share_input(x, h, method)
-    base = share_output(f, x)
+    x, h = _check_input(x, h, method)
+    base = _evaluate(f, x)
     if base.ndim != 0:
         raise ValueError("f must return a scalar; use jacobian for vector output")
 
@@ -162,14 +162,14 @@ def grad(f, x, h=1e-5, method="central"):
     for i in range(x.size):
         x_plus = x.copy()
         x_plus[i] += h
-        f_plus = share_output(f, x_plus, base.shape)
+        f_plus = _evaluate(f, x_plus, base.shape)
 
         if method == "forward":
             gradient[i] = (f_plus - base) / h
         else:
             x_minus = x.copy()
             x_minus[i] -= h
-            f_minus = share_output(f, x_minus, base.shape)
+            f_minus = _evaluate(f, x_minus, base.shape)
             gradient[i] = (f_plus - f_minus) / (2 * h)
 
     return gradient
@@ -213,8 +213,8 @@ def jacobian(F, x, h=1e-5, method="central"):
     Central differences use 2*n+1 evaluations; forward differences use
     n+1. Both include a base evaluation to validate the output.
     """
-    x, h = share_input(x, h, method)
-    base = share_output(F, x)
+    x, h = _check_input(x, h, method)
+    base = _evaluate(F, x)
     if base.ndim != 1 or base.size == 0:
         raise ValueError("F must return a nonempty one-dimensional vector")
 
@@ -222,14 +222,14 @@ def jacobian(F, x, h=1e-5, method="central"):
     for i in range(x.size):
         x_plus = x.copy()
         x_plus[i] += h
-        f_plus = share_output(F, x_plus, base.shape)
+        f_plus = _evaluate(F, x_plus, base.shape)
 
         if method == "forward":
             result[:, i] = (f_plus - base) / h
         else:
             x_minus = x.copy()
             x_minus[i] -= h
-            f_minus = share_output(F, x_minus, base.shape)
+            f_minus = _evaluate(F, x_minus, base.shape)
             result[:, i] = (f_plus - f_minus) / (2 * h)
 
     return result
