@@ -4,7 +4,7 @@ P_AI Assignment 2.1, 2026 S2
 
 Group name: 404 Group Not Found
 
-Demo video link: [A2_Demo](https://drive.google.com/file/d/1r0dqZAtjWeVQaC27oEmmYyk3QhV-nCBy/view?usp=sharing)
+Demo video link: [A2_Demo_v2](https://drive.google.com/file/d/1apc4BkWprAicbEkPzG4MyL1uVOdXkbCl/view?usp=sharing)
 
 A scientific computing toolkit built with Python and NumPy. It includes CSV input, preprocessing, sorting/searching, ranking, statistics, metrics, numerical derivatives, pipelines and reproducible benchmarks.
 
