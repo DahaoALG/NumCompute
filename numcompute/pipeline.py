@@ -319,6 +319,37 @@ class Pipeline:
         self.fit(X, y)
         return self.transform(X)
 
+    def partial_fit(self, X, y=None):
+        """Fit the pipeline incrementally on one chunk.
+
+        Intermediate steps that implement ``partial_fit`` are updated online.
+        If they do not, they are refit on the currently available chunk. The
+        final step receives the transformed features and, if given, the labels.
+        """
+        X_out = X
+        for name, step in self.steps[:-1]:
+            if callable(getattr(step, "partial_fit", None)):
+                step.partial_fit(X_out)
+            else:
+                step.fit(X_out)
+            X_out = step.transform(X_out)
+
+        last = self.steps[-1][1]
+        if callable(getattr(last, "partial_fit", None)):
+            if y is None:
+                raise ValueError("The final step requires y for partial_fit")
+            last.partial_fit(X_out, y)
+        elif callable(getattr(last, "fit", None)):
+            if y is None:
+                last.fit(X_out)
+            else:
+                last.fit(X_out, y)
+        else:
+            raise ValueError("The final step does not support fit or partial_fit")
+
+        self.is_fitted_ = True
+        return self
+
     def predict(self, X):
         """Transform features and delegate prediction to the final estimator.
 
